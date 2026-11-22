@@ -29,8 +29,11 @@ KNOWLEDGE_BASE = (
             "outdoor activities; vulnerable persons should avoid all outdoor "
             "activities. Very High is above 250 µg/m³: healthy persons should "
             "minimise all outdoor activities; vulnerable persons should "
-            "continue to avoid all outdoor activities. These are the app's "
-            "guidance bands, not an automatic event-cancellation decision."
+            "avoid all outdoor activities. In this guidance, "
+            "reduce means do less of the specified activity, minimise means "
+            "do as little as possible, and avoid means do not do the specified "
+            "activity. These are the app's guidance bands, not an automatic "
+            "event-cancellation decision."
         ),
     ),
     KnowledgeChunk(

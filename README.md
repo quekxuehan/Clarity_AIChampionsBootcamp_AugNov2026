@@ -52,7 +52,15 @@ knowledge base and OpenAI. It does not provide live readings, forecasts,
 medical advice, or event-cancellation decisions. Do not enter personal or
 sensitive information.
 
-Choose the event region and setting to see the current 1-hour PM2.5 band and
+Choose the event setting in the sidebar. In the **Event location** section,
+choose an air-quality region manually, click the map, or submit a Singapore
+address to get an approximate region suggestion. Address lookup sends the
+submitted address to OpenStreetMap's public Nominatim service; avoid entering
+sensitive addresses. The map also loads OpenStreetMap tiles. The suggested
+region is based on the nearest reference point, not official boundary
+polygons, and can be changed manually.
+
+The selected region and event setting show the current 1-hour PM2.5 band and
 its associated activity guidance:
 
 - **Normal:** 0-55 µg/m³; all persons can continue with their activities.
@@ -61,8 +69,10 @@ its associated activity guidance:
 - **High:** 151-250 µg/m³; healthy persons should avoid strenuous outdoor
   activities; vulnerable persons should avoid all outdoor activities.
 - **Very High:** above 250 µg/m³; healthy persons should minimise all outdoor
-  activities; vulnerable persons should continue to avoid all outdoor
-  activities.
+  activities; vulnerable persons should avoid all outdoor activities.
+
+In this guidance, **reduce** means do less, **minimise** means do as little as
+possible, and **avoid** means do not do the specified activity.
 
 These are activity-guidance bands, not automatic cancellation rules. The
 dashboard also shows the 24-hour PSI reading as a separate overview.

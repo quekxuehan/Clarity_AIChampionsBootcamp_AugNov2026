@@ -3,8 +3,12 @@ from datetime import datetime
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+import folium
 import streamlit as st
+from streamlit_folium import st_folium
+
 from app_common import EDUCATIONAL_DISCLAIMER, require_password
+from event_location import REGION_REFERENCE_POINTS, geocode_address, nearest_region
 
 
 PSI_API_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi"
@@ -115,17 +119,150 @@ st.markdown(
     "region, alongside the 24-hour PSI overview."
 )
 
+pending_region = st.session_state.pop("pending_event_region", None)
+if pending_region in REGIONS:
+    st.session_state["event_region"] = pending_region
+if st.session_state.pop("clear_event_address", False):
+    st.session_state["event_address"] = ""
+location_notice = st.session_state.pop("event_location_notice", None)
+location_notice_type = st.session_state.pop("event_location_notice_type", "info")
+st.session_state.setdefault("event_map_revision", 0)
+
 with st.sidebar:
     st.header("Event settings")
     activity_type = st.selectbox(
         "Event setting",
         ["Outdoor", "Mixed indoor and outdoor", "Indoor"],
     )
-    selected_region = st.selectbox("Event region", list(REGIONS))
     if st.button("Refresh live readings", use_container_width=True):
         fetch_psi.clear()
         fetch_pm25.clear()
         st.rerun()
+
+with st.container(border=True):
+    st.subheader("Event location")
+    st.caption(
+        "Search a Singapore address or click the map. The assigned region is "
+        "an estimate based on the nearest data.gov.sg regional reference point; "
+        "confirm or change it below."
+    )
+    location_column, map_column = st.columns([0.85, 1.15], gap="medium")
+    with location_column:
+        selected_region = st.selectbox(
+            "Air-quality region",
+            list(REGIONS),
+            key="event_region",
+        )
+        if location_notice:
+            if location_notice_type == "warning":
+                st.warning(location_notice)
+            else:
+                st.info(location_notice)
+        with st.form("event_address_lookup"):
+            event_address = st.text_input(
+                "Event address in Singapore",
+                key="event_address",
+                placeholder="e.g. 1 Marina Boulevard, Singapore",
+            )
+            address_submitted = st.form_submit_button("Find approximate region")
+
+        st.caption(
+            "Submitting an address sends it to OpenStreetMap's public "
+            "Nominatim geocoder. Avoid sensitive addresses; only the region "
+            "selection is needed for this dashboard."
+        )
+        st.markdown(
+            "[Geocoding by Nominatim](https://nominatim.openstreetmap.org/) · "
+            "© OpenStreetMap contributors"
+        )
+        if address_submitted:
+            if not event_address.strip():
+                st.warning("Enter an address to search.")
+            else:
+                try:
+                    with st.spinner("Looking up the address…"):
+                        place = geocode_address(event_address)
+                except (URLError, TimeoutError) as error:
+                    st.error(
+                        "Could not reach the address lookup service. Try again "
+                        "or choose a region manually."
+                    )
+                except (json.JSONDecodeError, ValueError) as error:
+                    st.error(f"Could not look up that address: {error}")
+                else:
+                    if place is None:
+                        st.warning(
+                            "No Singapore location was found. Check the address "
+                            "or choose a region manually."
+                        )
+                    else:
+                        address_region = nearest_region(*place)
+                        if address_region is None:
+                            st.warning(
+                                "The address could not be matched to a Singapore "
+                                "region. Choose a region manually."
+                            )
+                        else:
+                            st.session_state["pending_event_region"] = address_region
+                            st.session_state["clear_event_address"] = True
+                            st.session_state["event_location_notice"] = (
+                                f"Approximate match: {address_region}. "
+                                "Please confirm the region selection."
+                            )
+                            st.session_state["event_location_notice_type"] = "info"
+                            st.session_state["event_map_revision"] += 1
+                            st.rerun()
+
+    with map_column:
+        region_map = folium.Map(
+            location=(1.35735, 103.82),
+            zoom_start=10,
+            control_scale=True,
+        )
+        for region, coordinates in REGION_REFERENCE_POINTS.items():
+            folium.Marker(
+                location=coordinates,
+                tooltip=f"{region} region",
+                popup=f"{region} region reference point",
+                icon=folium.Icon(
+                    color="blue" if region == selected_region else "cadetblue",
+                    icon="map-marker",
+                ),
+            ).add_to(region_map)
+
+        map_result = st_folium(
+            region_map,
+            key=f"event_region_map_{st.session_state['event_map_revision']}",
+            height=360,
+            use_container_width=True,
+            returned_objects=["last_clicked", "last_object_clicked"],
+        )
+        clicked_point = None
+        if isinstance(map_result, dict):
+            clicked_point = map_result.get("last_clicked") or map_result.get(
+                "last_object_clicked"
+            )
+        if isinstance(clicked_point, dict):
+            latitude = clicked_point.get("lat")
+            longitude = clicked_point.get("lng")
+            if isinstance(latitude, (int, float)) and isinstance(
+                longitude, (int, float)
+            ):
+                map_region = nearest_region(latitude, longitude)
+                if map_region is None:
+                    st.session_state["event_location_notice"] = (
+                        "Click within Singapore to choose a region."
+                    )
+                    st.session_state["event_location_notice_type"] = "warning"
+                else:
+                    st.session_state["event_location_notice"] = (
+                        f"Approximate map selection: {map_region}. "
+                        "Please confirm the region selection."
+                    )
+                    st.session_state["event_location_notice_type"] = "info"
+                    st.session_state["pending_event_region"] = map_region
+                st.session_state["event_map_revision"] += 1
+                st.rerun()
 
 psi_snapshot = None
 pm25_snapshot = None
@@ -173,6 +310,10 @@ if pm25_snapshot is not None:
                 "children, and people with chronic respiratory or heart "
                 f"diseases): {vulnerable_guidance}"
             )
+        st.caption(
+            "Guidance wording: reduce = do less; minimise = do as little as "
+            "possible; avoid = do not do the specified activity."
+        )
         if activity_type == "Indoor":
             st.info(
                 "This guidance concerns outdoor activities. For an indoor "

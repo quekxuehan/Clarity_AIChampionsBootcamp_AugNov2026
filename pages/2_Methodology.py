@@ -13,8 +13,9 @@ require_password()
 st.title("Methodology")
 st.markdown(
     "This page describes how Clarity SG retrieves, validates, and presents "
-    "1-hour PM2.5 and 24-hour PSI data, and how its activity-guidance bands "
-    "are selected."
+    "1-hour PM2.5 and 24-hour PSI data, how its activity-guidance bands are "
+    "selected, and how Ask Clarity answers questions using retrieval-augmented "
+    "generation (RAG)."
 )
 
 st.header("Data flow")
@@ -37,11 +38,31 @@ st.markdown(
 """
 )
 
+st.header("Event location selection")
+st.markdown(
+    """
+- The map displays one reference point for each data.gov.sg air-quality
+  region. Clicking the map selects the nearest point using geographic
+  distance.
+- Address lookup sends the submitted Singapore address to
+  [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/), limited to
+  Singapore results. Requests are rate-limited to one per second.
+- The interactive map loads OpenStreetMap tiles in the browser; map tiles and
+  address geocoding are separate from the data.gov.sg air-quality feeds.
+- The five reference points are not region-boundary polygons. Map and address
+  matching are approximate; users can confirm or change the region with the
+  selector. The selected region determines which live reading is displayed.
+- Do not submit a sensitive address.
+"""
+)
+
 st.header("How the PM2.5 activity guidance works")
 st.markdown(
     """
-- The user selects an event region and setting. The selected region's
-  1-hour PM2.5 reading is assigned to one of four activity-guidance bands:
+- The user selects an event setting and can select a region manually, click
+  the map, or submit a Singapore address for an approximate region suggestion.
+  The selected region's 1-hour PM2.5 reading is assigned to one of four
+  activity-guidance bands:
   Normal (0-55 µg/m³), Elevated (56-150 µg/m³), High (151-250 µg/m³), or
   Very High (above 250 µg/m³).
 - Normal: all persons can continue with their activities.
@@ -50,7 +71,10 @@ st.markdown(
 - High: healthy persons should avoid strenuous outdoor activities; vulnerable
   persons should avoid all outdoor activities.
 - Very High: healthy persons should minimise all outdoor activities;
-  vulnerable persons should continue to avoid all outdoor activities.
+  vulnerable persons should avoid all outdoor activities.
+- In this guidance, **reduce** means do less of the specified activity;
+  **minimise** means do as little as possible; and **avoid** means do not do
+  the specified activity.
 - These bands provide activity guidance, not an automatic event-cancellation
   decision. The dashboard also displays the 24-hour PSI snapshot separately.
 - PSI bands are assigned by the dashboard: 0-50 Good, 51-100 Moderate,
@@ -65,10 +89,25 @@ st.markdown(
     """
 - The interface is built with Streamlit. PSI data is fetched with Python's
   standard-library HTTP and JSON tools; both feeds are fetched independently.
-- The **Ask Clarity** page uses OpenAI embeddings to retrieve excerpts from a
-  small, curated knowledge base and an OpenAI model to draft source-cited
-  explanations. It does not use the assistant to fetch live readings or
-  calculate PM2.5/PSI bands. Questions are sent to OpenAI; do not enter
+- **Ask Clarity RAG flow:**
+  1. The app creates embeddings for its small, curated set of guidance and
+     source-summary excerpts with OpenAI's `text-embedding-3-small` model.
+     The resulting vector index is cached in the Streamlit process; it is
+     not a persistent vector database.
+  2. When a question is submitted, the app embeds it, ranks the excerpts by
+     cosine similarity, and supplies the three closest excerpts to
+     `gpt-4o-mini`.
+  3. The model is instructed to answer only from those excerpts, cite them
+     with source IDs, and return `NOT_FOUND` when the excerpts do not answer
+     the question. The app displays an answer only when it contains valid
+     citations to retrieved excerpts, then lists the cited sources and links
+     where available.
+- The RAG knowledge base is curated in the app; it does not crawl or
+  continuously refresh external documents. Ask Clarity does not fetch live
+  readings or calculate PM2.5/PSI bands. Those remain the dashboard's
+  deterministic data flow described above.
+- Questions and retrieved excerpts are sent to OpenAI for embeddings and
+  answer generation. The API key is stored in Streamlit secrets; do not enter
   personal or sensitive information.
 - The app uses one shared password stored as `app_password` in Streamlit
   secrets. Password comparison uses a constant-time comparison.

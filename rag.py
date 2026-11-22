@@ -231,6 +231,7 @@ def _split_text(text: str, max_chars: int = MAX_CHUNK_CHARS) -> tuple[str, ...]:
 
 
 def fetch_nea_sources() -> tuple[KnowledgeChunk, ...]:
+    # Download only approved NEA pages, then convert their HTML text into searchable chunks.
     chunks: list[KnowledgeChunk] = []
     for title, url in NEA_SOURCE_URLS:
         request = Request(url, headers={"User-Agent": "ClaritySG/1.0"})
@@ -285,6 +286,7 @@ def retrieve_chunks(
     question: str,
     top_k: int = 3,
 ) -> tuple[KnowledgeChunk, ...]:
+    # Compare the question with saved knowledge vectors and return the closest matches.
     response = client.embeddings.create(model=EMBEDDING_MODEL, input=question)
     if not response.data:
         raise ValueError("The embeddings response did not contain a query vector.")

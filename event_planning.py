@@ -30,6 +30,7 @@ def build_event_assessment(
     today: date,
     reading_kind: ReadingKind = "PM2.5",
 ) -> EventAssessment:
+    # A missing reading means the app cannot make a planning assessment.
     if pm25_value is None:
         if reading_kind == "Planning":
             summary = (
@@ -58,6 +59,7 @@ def build_event_assessment(
             reading_kind=reading_kind,
         )
 
+    # PM2.5 and PSI use different category boundaries.
     if reading_kind == "PSI":
         if pm25_value <= 50:
             band = "Good"
@@ -98,6 +100,7 @@ def build_event_assessment(
 
     actions: list[str] = []
 
+    # The first actions cover venue fallback; later actions add only relevant risks.
     if is_outdoor_exposure:
         actions.append("Prepare shaded or indoor fallback areas and plan frequent breaks.")
     else:
@@ -143,6 +146,7 @@ def select_event_reading(
     pm25_value: int | None,
     psi_value: int | None,
 ) -> tuple[int | None, ReadingKind]:
+    # Keep the selected reading tied to the event date, not both readings at once.
     if event_date == today:
         return pm25_value, "PM2.5"
     if event_date > today:

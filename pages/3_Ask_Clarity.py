@@ -21,6 +21,7 @@ from rag import (
 def cached_knowledge_index(
     api_key: str, source_chunks: tuple[KnowledgeChunk, ...]
 ) -> KnowledgeIndex:
+    # Cache embeddings because creating them again for every question is slow and costly.
     return build_knowledge_index(
         OpenAI(api_key=api_key),
         (*KNOWLEDGE_BASE, *source_chunks),
@@ -29,6 +30,7 @@ def cached_knowledge_index(
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_nea_knowledge() -> tuple[str, tuple[KnowledgeChunk, ...]]:
+    # Keep a one-hour copy of approved NEA page text.
     source_chunks = fetch_nea_sources()
     fetched_at = datetime.now().astimezone().isoformat()
     return fetched_at, source_chunks

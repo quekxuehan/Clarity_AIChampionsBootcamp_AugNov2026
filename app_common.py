@@ -19,6 +19,7 @@ EDUCATIONAL_DISCLAIMER = (
 
 
 def require_password() -> None:
+    # Stop the app before it displays data if the shared app password is missing or wrong.
     try:
         app_password = st.secrets["app_password"]
     except (KeyError, StreamlitSecretNotFoundError):
@@ -81,6 +82,7 @@ def require_password() -> None:
 
 
 def require_admin_login() -> bool:
+    # Admin mode is separate from the shared visitor password and controls delete-all access.
     if st.session_state.get("is_admin") is True:
         with st.sidebar:
             if st.button("Exit admin mode", use_container_width=True):

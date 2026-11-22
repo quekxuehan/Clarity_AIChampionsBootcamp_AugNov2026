@@ -19,6 +19,7 @@ from event_store import EventPlanStore, plan_checklist_progress, plan_followup_s
 
 PSI_API_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi"
 PM25_API_URL = "https://api-open.data.gov.sg/v2/real-time/api/pm25"
+# Each key maps a user-friendly region name to the field name returned by the API.
 REGIONS = {
     "Central": "central",
     "East": "east",
@@ -98,6 +99,7 @@ def pm25_guidance(value: int) -> tuple[str, str | None]:
 
 
 def fetch_readings(api_url: str, reading_key: str, pollutant: str) -> dict:
+    # Download one live snapshot, validate it, and return only the latest reading.
     request = Request(
         api_url,
         headers={"User-Agent": "ClaritySG/1.0"},
@@ -136,6 +138,7 @@ def fetch_readings(api_url: str, reading_key: str, pollutant: str) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_psi() -> dict:
+    # Cache feed data briefly so repeated Streamlit reruns do not call the API each time.
     return fetch_readings(PSI_API_URL, "psi_twenty_four_hourly", "PSI")
 
 
@@ -149,6 +152,7 @@ require_password()
 is_admin = require_admin_login()
 
 if "browser_owner_id" not in st.session_state:
+    # The browser cookie identifies saved plans per browser; it is not account security.
     cookie_owner_id = getattr(st.context, "cookies", {}).get("clarity_owner_id")
     try:
         browser_owner_id = str(uuid.UUID(cookie_owner_id)) if cookie_owner_id else str(uuid.uuid4())
@@ -429,6 +433,7 @@ psi_snapshot = None
 pm25_snapshot = None
 today = date.today()
 days_until_event = (event_date - today).days
+# Fetch only the reading that can actually be used for this event date.
 needs_pm25 = event_date == today
 needs_psi = 0 < days_until_event <= FUTURE_PLANNING_HORIZON_DAYS
 
@@ -540,6 +545,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.subheader("4. Assessment and recommended actions")
+    # The assessment combines air quality with event setting, duration, intensity, and attendees.
     assessment = build_event_assessment(
         pm25_value=assessment_value,
         setting=activity_type,
@@ -556,6 +562,7 @@ with st.container(border=True):
 
     st.session_state.setdefault("event_handover_note", "")
 
+    # Regenerate recommendations only when the assessment result changes.
     checklist_source = (
         reading_kind,
         assessment_value,
@@ -657,6 +664,7 @@ with st.container(border=True):
         save_column, delete_column = st.columns([0.72, 0.28])
         with save_column:
             if st.button("Save / update", type="primary", use_container_width=True):
+                # Store both completion flags and user-edited action text.
                 checklist_items = st.session_state["event_checklist_items"]
                 checklist_state = {
                     str(index): item["completed"]

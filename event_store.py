@@ -18,6 +18,7 @@ class EventPlan:
 
 
 class EventPlanStore:
+    # Small wrapper around SQLite: all saving, loading, filtering, and deletion happens here.
     def __init__(self, database_path: str | Path = DEFAULT_DB_PATH) -> None:
         self.database_path = Path(database_path)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,6 +30,7 @@ class EventPlanStore:
         return connection
 
     def _initialize(self) -> None:
+        # CREATE TABLE IF NOT EXISTS and ALTER TABLE allow existing databases to migrate safely.
         with self._connect() as connection:
             connection.execute(
                 """

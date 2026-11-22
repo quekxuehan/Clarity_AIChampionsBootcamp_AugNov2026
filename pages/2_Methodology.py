@@ -24,8 +24,8 @@ st.markdown(
 1. **Request:** The dashboard sends HTTPS GET requests to the
    [data.gov.sg real-time PM2.5 API](https://api-open.data.gov.sg/v2/real-time/api/pm25)
    and [real-time PSI API](https://api-open.data.gov.sg/v2/real-time/api/psi).
-   Each request has a 10-second timeout and identifies the app with a
-   `User-Agent` header.
+   Only the feed relevant to the event date is requested. Each request has a
+   10-second timeout and identifies the app with a `User-Agent` header.
 2. **Cache:** Successful results from each feed are cached for five minutes to
    limit repeated requests while keeping the dashboard periodically refreshed.
 3. **Validate and select:** For each feed, the app checks for timestamped
@@ -35,7 +35,9 @@ st.markdown(
 4. **Select:** Today's events use the selected region's 1-hour PM2.5 value.
    Future events within 7 days use 24-hour PSI. Future events beyond 7 days
    use long-range planning guidance and no air-quality forecast.
-5. **Present:** The selected reading, category/band, region, freshness, and
+5. **Present:** The event details appear in a numbered landing-page flow:
+   event details, location, relevant reading, and assessment. The selected
+   reading, category/band, region, freshness, and
    event-date context drive the assessment and recommended checklist.
 """
 )
@@ -43,26 +45,15 @@ st.markdown(
 st.header("Event location selection")
 st.markdown(
     """
-- The map displays one reference point for each data.gov.sg air-quality
-  region. Clicking the map selects the nearest point using geographic
-  distance.
-- Address lookup sends the submitted Singapore address to
-  [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/), limited to
-  Singapore results. Requests are rate-limited to one per second.
-- The interactive map loads OpenStreetMap tiles in the browser; map tiles and
-  address geocoding are separate from the data.gov.sg air-quality feeds.
-- The five reference points are not region-boundary polygons. Map and address
-  matching are approximate; users can confirm or change the region with the
-  selector. The selected region determines which live reading is displayed.
-- Do not submit a sensitive address.
+- Users select one of five Singapore regions directly. This keeps the proof
+  of concept simple and avoids collecting a venue address.
 """
 )
 
 st.header("How the PM2.5 activity guidance works")
 st.markdown(
     """
-- The user selects an event setting and can select a region manually, click
-  the map, or submit a Singapore address for an approximate region suggestion.
+- The user selects an event setting and can select a region manually.
   The selected region's 1-hour PM2.5 reading is assigned to one of four
   activity-guidance bands:
   Normal (0-55 µg/m³), Elevated (56-150 µg/m³), High (151-250 µg/m³), or
@@ -78,7 +69,7 @@ st.markdown(
   **minimise** means do as little as possible; and **avoid** means do not do
   the specified activity.
 - These bands provide activity guidance, not an automatic event-cancellation
-  decision. The dashboard also displays the 24-hour PSI snapshot separately.
+  decision. The dashboard displays only the reading relevant to the event date.
 - PSI bands are assigned by the dashboard: 0-50 Good, 51-100 Moderate,
   101-200 Unhealthy, 201-300 Very unhealthy, and above 300 Hazardous.
 - If a feed or selected regional reading is unavailable, the dashboard reports
@@ -87,21 +78,15 @@ st.markdown(
   for events held today. For future events it uses the 24-hour PSI reading
   and PSI categories within 7 days. Events more than 7 days away show long-range
   planning guidance and should be checked again using 1-hour PM2.5 on the event day.
-  Past events use PSI only as retrospective context.
-  It also uses duration, setting, activity intensity, and attendee mix. It generates a
-  practical checklist, including monitoring and fallback options. The
+  It also uses duration, setting, activity intensity, and attendee mix. It generates
+  up to five practical recommended actions, including monitoring and fallback options. The
   assessment is deterministic, does not use the reading as a future forecast,
   and does not make a cancellation decision. A Markdown checklist can be
   downloaded for event-planning records.
-- The threshold alert uses PM2.5 thresholds for today's events and PSI
-  thresholds for future events within 7 days. It recalculates when readings
-  are refreshed or a plan is loaded. Long-range events have no threshold
-  alert until 1-hour PM2.5 can be checked on the event day. It does not send
-  notifications or monitor continuously.
 - Saved-plan controls are grouped in an expandable section. The page also
-  includes a checklist progress indicator, expandable personal follow-up and threshold
-  settings, explicit delete confirmation, and a Markdown checklist export.
-- Saved-plan cards derive checklist progress and follow-up status from stored
+  includes a checklist progress indicator, expandable personal follow-up notes,
+  explicit delete confirmation, and a Markdown checklist export.
+- Saved-plan cards derive checklist progress and personal-notes status from stored
   plan fields. Responsive CSS changes status and plan cards to fewer columns
   on tablets and one column on mobile screens.
 """
@@ -110,8 +95,8 @@ st.markdown(
 st.header("Implementation and limitations")
 st.markdown(
     """
-- The interface is built with Streamlit. PSI data is fetched with Python's
-  standard-library HTTP and JSON tools; both feeds are fetched independently.
+- The interface is built with Streamlit. The app fetches PSI or PM2.5 based on
+  the event date, using Python's standard-library HTTP and JSON tools.
 - **Ask Clarity RAG flow:**
   1. On a question, the app fetches the NEA air-pollution FAQs and managing
      haze pages over HTTPS. Successful page content is cached for up to one
@@ -135,8 +120,8 @@ st.markdown(
 - The app uses one shared password stored as `app_password` in Streamlit
   secrets. Password comparison uses a constant-time comparison.
 - Event plans are stored locally in an SQLite database at
-  `.data/event_plans.sqlite3`. Saved plans include event settings, follow-up owner,
-  next-check details, threshold selection, personal follow-up notes, and checklist
+  `.data/event_plans.sqlite3`. Saved plans include event settings,
+  personal follow-up notes, and checklist
   status. Plans are filtered by a browser cookie and can be administered with
   a separate `admin_password`. Browser identity is not a strong security boundary;
   the database is excluded from Git and should not contain sensitive personal

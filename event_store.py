@@ -156,11 +156,5 @@ def plan_checklist_progress(plan: EventPlan) -> tuple[int, int]:
 
 
 def plan_followup_status(plan: EventPlan) -> str:
-    owner = str(plan.data.get("safety_owner", "")).strip()
-    next_check = str(plan.data.get("next_check", "")).strip()
     note = str(plan.data.get("handover_note", "")).strip()
-    if owner and next_check:
-        return "Follow-up ready"
-    if owner or next_check or note:
-        return "Needs follow-up details"
-    return "No follow-up set"
+    return "Notes added" if note else "No notes"

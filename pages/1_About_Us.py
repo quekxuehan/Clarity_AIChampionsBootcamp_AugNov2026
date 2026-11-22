@@ -18,9 +18,8 @@ st.header("What Clarity SG helps you do")
 st.markdown(
     """
 Clarity SG brings live 1-hour PM2.5 and 24-hour Pollutant Standards Index
-(PSI) readings into one event-planning view. You can compare readings across
-Central, East, North, South, and West Singapore, choose an approximate venue
-region, and prepare for outdoor or indoor activities.
+(PSI) readings into one event-planning view. You select a Central, East,
+North, South, or West region and prepare for outdoor or indoor activities.
 
 The app creates an operational checklist based on the event date, duration,
 setting, activity level, and attendee mix. Events today use 1-hour PM2.5;
@@ -41,29 +40,23 @@ st.markdown(
   supplies regional 1-hour PM2.5 readings and timestamps.
 - [NEA haze management and air-pollution information](https://www.nea.gov.sg/our-services/pollution-control/air-pollution/managing-haze)
   provides official haze and air-pollution context.
-- [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org/) is used to
-  find approximate Singapore addresses. It does not provide air-quality data.
 """
 )
 
 st.header("What is included")
 st.markdown(
     """
-- Live PM2.5 and PSI readings with update timestamps.
+- Only the reading relevant to the event date: 1-hour PM2.5 today or
+  24-hour PSI for future events within 7 days.
 - Clear PM2.5 and PSI bands.
 - A dynamic assessment showing the relevant reading, freshness, region, and
   category for the selected event date.
-- Singapore address lookup and a clickable region map.
 - Event Planning Assessment based on date, duration, setting, activity
   intensity, and attendee mix.
-- A recommended checklist that can be marked complete, edited, added to,
+- Up to five generated checklist actions that can be marked complete, edited, added to,
   deleted, and downloaded as Markdown.
 - A recheck reminder for future and long-range events.
-- Locally saved event plans with a follow-up owner, next check, threshold,
-  personal follow-up notes, and checklist progress.
-- Dashboard alerts at Elevated, High, or Very High thresholds. Alerts
-  recalculate when readings refresh or a plan is loaded; they do not send
-  email or push notifications.
+- Locally saved event plans with personal follow-up notes and checklist progress.
 - Ask Clarity, which retrieves relevant app guidance and official NEA
   information and shows source references.
 - Password-protected access for the shared app.
@@ -73,12 +66,8 @@ st.markdown(
 st.header("Choosing a location")
 st.markdown(
     """
-You can select a region directly, click the map, or enter a Singapore address.
-Address lookup is sent to OpenStreetMap's public Nominatim service. The app
-then matches the location to the nearest regional reference point.
-
-These are planning estimates, not official region boundaries. Please confirm
-the selected region before using the reading. Do not enter sensitive addresses.
+Select the Central, East, North, South, or West region closest to the venue.
+The region is a planning estimate, not an official boundary.
 """
 )
 

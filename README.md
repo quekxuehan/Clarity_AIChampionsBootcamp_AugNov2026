@@ -13,19 +13,18 @@ answers about the app's guidance.
 
 ## Main features
 
-- Live 1-hour PM2.5 and 24-hour PSI readings for Central, East, North, South,
-  and West Singapore.
+- Live 1-hour PM2.5 or 24-hour PSI readings for Central, East, North, South,
+  and West Singapore, fetched only when relevant to the event date.
 - A dynamic event assessment: 1-hour PM2.5 today, 24-hour PSI for future
   events within 7 days, and long-range planning guidance beyond 7 days.
 - A streamlined status summary with the relevant reading, freshness, and band.
-- Singapore address lookup and an approximate region map.
-- Editable recommended actions with confirmation, text editing, add, and delete controls.
+- Up to five generated recommended actions, plus editable text, confirmation,
+  add, and delete controls.
 - An Event Planning Assessment based on date, duration, event setting,
   activity intensity, and attendee mix.
 - A downloadable Markdown checklist with completed-item status.
-- Browser-private SQLite event plans with follow-up owner, threshold, next-check,
-  follow-up note, and checklist details.
-- PM2.5 or PSI threshold alerts matched to the event-date reading type.
+- Browser-private SQLite event plans with personal follow-up notes and
+  checklist details.
 - Source-cited Ask Clarity responses from app guidance and official NEA pages.
 
 ## Run locally
@@ -75,13 +74,9 @@ provide live readings, forecasts, medical advice, or event-cancellation
 decisions. Questions and retrieved excerpts are sent to OpenAI; do not enter
 personal or sensitive information.
 
-Choose the event setting in the sidebar. In the **Event location** section,
-choose an air-quality region manually, click the map, or submit a Singapore
-address to get an approximate region suggestion. Address lookup sends the
-submitted address to OpenStreetMap's public Nominatim service; avoid entering
-sensitive addresses. The map also loads OpenStreetMap tiles. The suggested
-region is based on the nearest reference point, not official boundary
-polygons, and can be changed manually.
+Choose the event details on the landing page. In the **Event location**
+section, select the Central, East, North, South, or West air-quality region
+closest to the venue.
 
 The 1-hour PM2.5 reading is used for events held today and shows its associated
 activity guidance:
@@ -103,29 +98,25 @@ The Event Planning Assessment uses the latest regional 1-hour PM2.5 reading
 for events held today and the latest 24-hour PSI overview for future events
 within 7 days. Events more than 7 days away use long-range planning guidance
 instead of an air-quality forecast. They should be checked again with 1-hour
-PM2.5 readings on the event day. Past events use 24-hour PSI only as retrospective context. The assessment also
-uses event duration, setting, highest activity intensity, and attendee mix.
-It creates a checklist for monitoring, venue alternatives,
-exposure reduction, and vulnerable attendees. The checklist can be downloaded
-as Markdown. It is operational planning support, not an official advisory,
+PM2.5 readings on the event day. The assessment uses event duration, setting,
+highest activity intensity, and attendee mix. It creates no more than five
+generated actions for monitoring, venue alternatives, exposure reduction,
+and vulnerable attendees. The editable checklist can be downloaded as Markdown.
+It is operational planning support, not an official advisory,
 forecast, or automatic cancellation decision.
 
-Event plans can be saved locally in SQLite with a follow-up owner, next-check
-details, threshold selection, personal follow-up notes, and checklist status. The
+Event plans can be saved locally in SQLite with personal follow-up notes and
+checklist status. The
 database is stored in `.data/event_plans.sqlite3` and is excluded from Git.
 Plans are separated by browser identity and are not designed for secure,
 sensitive, or personally identifiable information.
 
-Saved plans appear as cards with date, region, follow-up owner, threshold, checklist
-progress, and follow-up status. Each card can be loaded or deleted, with delete
+Saved plans appear as cards with date, region, checklist progress, and personal
+notes status. Each card can be loaded or deleted, with delete
 confirmation to prevent accidental removal. On smaller screens, dashboard,
-status, regional, and saved-plan cards stack for easier use.
+status and saved-plan cards adapt to fewer columns.
 
-The threshold status is recalculated when live readings are refreshed or a
-saved plan is loaded. It is an on-screen planning alert, not a push
-notification, continuously running monitor, forecast, or cancellation rule.
-
-Both feeds show current readings, not a forecast for a future event time.
+The relevant feed shows a current reading, not a forecast for a future event time.
 Future events within 7 days may use the 24-hour PSI as near-term context.
 Longer-range events do not receive an air-quality forecast and must be checked
 again with 1-hour PM2.5 on the event day. Recheck close to the event,

@@ -8,6 +8,7 @@ ActivityIntensity = Literal["Low", "Moderate", "Strenuous"]
 AttendeeMix = Literal["Healthy adults", "Mixed or unknown", "Vulnerable attendees"]
 ReadingKind = Literal["PM2.5", "PSI", "Planning"]
 FUTURE_PLANNING_HORIZON_DAYS = 7
+MAX_RECOMMENDED_ACTIONS = 5
 
 
 @dataclass(frozen=True)
@@ -17,31 +18,6 @@ class EventAssessment:
     actions: tuple[str, ...]
     reading_kind: str = "PM2.5"
     reading_value: int | None = None
-
-
-def threshold_for_label(label: str) -> int | None:
-    thresholds = {
-        "Off": None,
-        "Elevated (56 µg/m³)": 56,
-        "High (151 µg/m³)": 151,
-        "Very High (251 µg/m³)": 251,
-        "Moderate PSI (51)": 51,
-        "Unhealthy PSI (101)": 101,
-        "Very unhealthy PSI (201)": 201,
-        "Hazardous PSI (301)": 301,
-    }
-    return thresholds.get(label)
-
-
-def threshold_status(pm25_value: int | None, threshold_label: str) -> str:
-    threshold = threshold_for_label(threshold_label)
-    if threshold is None:
-        return "Alert threshold off"
-    if pm25_value is None:
-        return "Cannot determine: PM2.5 unavailable"
-    if pm25_value >= threshold:
-        return f"ALERT: PM2.5 is at or above {threshold} µg/m³"
-    return f"Below alert threshold ({threshold} µg/m³)"
 
 
 def build_event_assessment(
@@ -123,26 +99,24 @@ def build_event_assessment(
     actions: list[str] = []
 
     if is_outdoor_exposure:
-        actions.append("Set a personal follow-up owner to recheck the live reading before and during the event.")
-        actions.append("Prepare shaded, indoor, or filtered-air fallback areas for exposed participants.")
-        actions.append("Plan more frequent breaks and shorten continuous outdoor sessions.")
+        actions.append("Prepare shaded or indoor fallback areas and plan frequent breaks.")
     else:
         actions.append("Keep indoor air-quality systems operating normally and prepare a monitored indoor fallback.")
 
     if setting == "Mixed indoor and outdoor":
-        actions.append("Move prolonged or strenuous sessions indoors or under an enclosed shelter.")
+        actions.append("Move prolonged or strenuous sessions indoors or under enclosed shelter.")
 
     if intensity == "Strenuous" and is_outdoor_exposure:
-        if band in {"High", "Very High"}:
-            actions.append("Reschedule or move strenuous outdoor activities; do not rely on masks as a substitute for activity modification.")
+        if band in {"High", "Very High", "Unhealthy", "Very unhealthy", "Hazardous"}:
+            actions.append("Reschedule or move strenuous outdoor activities.")
         else:
-            actions.append("Reduce session intensity or duration during elevated PM2.5 conditions.")
+            actions.append("Reduce session intensity or duration.")
 
     if vulnerable:
-        actions.append("Confirm alternatives for elderly, pregnant, and chronically ill attendees, including children and people with heart or lung conditions.")
+        actions.append("Confirm alternatives for elderly, pregnant, and chronically ill attendees.")
 
     if is_outdoor_exposure and long_exposure:
-        actions.append("Split exposure into shorter periods and monitor conditions at least hourly.")
+        actions.append("Split exposure into shorter periods.")
 
     if event_date > today:
         actions.append(
@@ -157,7 +131,7 @@ def build_event_assessment(
     return EventAssessment(
         level=level,
         summary=summary,
-        actions=tuple(dict.fromkeys(actions)),
+        actions=tuple(dict.fromkeys(actions))[:MAX_RECOMMENDED_ACTIONS],
         reading_kind=reading_kind,
         reading_value=pm25_value,
     )

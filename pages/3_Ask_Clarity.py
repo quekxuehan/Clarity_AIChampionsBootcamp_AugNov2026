@@ -44,7 +44,7 @@ require_password()
 st.title("Ask Clarity")
 st.markdown(
     "Ask about Clarity SG's PM2.5 activity guidance, PSI bands, haze, and "
-    "air-quality, event-assessment, saved-plan, and threshold-alert questions. "
+    "air-quality, event-assessment, and saved-plan questions. "
     "Answers use the app's guidance plus current information retrieved from "
     "official NEA pages, with source references."
 )
@@ -53,7 +53,7 @@ st.info(
     "for up to one hour. The dashboard remains the place for live readings. "
     "Today's events use 1-hour PM2.5; future events within 7 days may use "
     "24-hour PSI. Events beyond 7 days require an event-day PM2.5 recheck. "
-    "Saved plans and threshold alerts are current-reading tools, not forecasts "
+    "Saved plans and checklist controls are current-reading tools, not forecasts "
     "or notifications. This assistant does not provide medical advice or "
     "event-cancellation decisions. Questions and retrieved excerpts are sent "
     "to OpenAI; do not include personal or sensitive information."
@@ -69,7 +69,7 @@ suggested_questions = (
     "What does Elevated PM2.5 mean?",
     "How do 1-hour PM2.5 and 24-hour PSI differ?",
     "When should I recheck air quality for a future event?",
-    "What should an outdoor event prepare for?",
+    "What checklist should an outdoor event prepare?",
 )
 st.caption("Suggested questions")
 suggested_column = st.columns(len(suggested_questions))

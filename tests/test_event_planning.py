@@ -4,7 +4,6 @@ from datetime import date
 from event_planning import (
     build_event_assessment,
     select_event_reading,
-    threshold_status,
 )
 
 
@@ -40,6 +39,7 @@ class EventPlanningTests(unittest.TestCase):
         )
         self.assertEqual(assessment.level, "Urgent review")
         self.assertIn("Very unhealthy PSI", assessment.summary)
+        self.assertIn("Reschedule or move", " ".join(assessment.actions))
 
     def test_event_more_than_seven_days_uses_long_range_planning(self):
         value, reading_kind = select_event_reading(
@@ -49,18 +49,6 @@ class EventPlanningTests(unittest.TestCase):
             75,
         )
         self.assertEqual((value, reading_kind), (None, "Planning"))
-
-    def test_threshold_status(self):
-        self.assertTrue(
-            threshold_status(151, "High (151 µg/m³)").startswith("ALERT")
-        )
-        self.assertTrue(
-            threshold_status(150, "High (151 µg/m³)").startswith("Below")
-        )
-        self.assertEqual(
-            threshold_status(100, "Off"),
-            "Alert threshold off",
-        )
 
     def test_normal_reading_returns_monitor_checklist(self):
         assessment = build_event_assessment(
@@ -91,6 +79,7 @@ class EventPlanningTests(unittest.TestCase):
         self.assertIn("elderly", actions)
         self.assertIn("indoors", actions)
         self.assertIn("Split exposure", actions)
+        self.assertLessEqual(len(assessment.actions), 5)
 
     def test_very_high_reading_calls_for_urgent_review(self):
         assessment = build_event_assessment(

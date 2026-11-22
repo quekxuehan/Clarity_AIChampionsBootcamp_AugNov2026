@@ -66,7 +66,9 @@ KNOWLEDGE_BASE = (
         content=(
             "The dashboard fetches current readings from the data.gov.sg "
             "real-time PSI and PM2.5 APIs. Successful feed results are cached "
-            "for five minutes. Readings are a live snapshot, not a forecast "
+            "for five minutes. Only the reading relevant to the event date is "
+            "fetched: 1-hour PM2.5 today or 24-hour PSI within 7 days. "
+            "Long-range events fetch neither feed. Readings are a live snapshot, not a forecast "
             "for a future event time. The app does not automatically cancel "
             "events, provide individual medical advice, or replace official "
             "NEA advisories or an organisation's safety policy. If a feed or "
@@ -81,26 +83,21 @@ KNOWLEDGE_BASE = (
             "current 1-hour PM2.5 band for events held today, or the 24-hour PSI "
             "category for future events within 7 days. Events beyond 7 days use "
             "long-range planning context without an air-quality forecast and should "
-            "be checked again using 1-hour PM2.5 on the event day. Past events use PSI retrospectively. It "
+            "be checked again using 1-hour PM2.5 on the event day. It "
             "also combines event duration, indoor or outdoor setting, activity "
             "intensity, and attendee mix. It produces a practical "
-            "checklist and supports downloading that checklist as Markdown. It does "
+            "checklist with up to five generated recommendations and supports "
+            "downloading the editable checklist as Markdown. It does "
             "not use current readings as a future forecast or make a cancellation "
             "decision."
         ),
     ),
     KnowledgeChunk(
-        title="Clarity SG methodology: saved plans and threshold alerts",
+        title="Clarity SG methodology: saved plans",
         content=(
             "Event plans can be saved locally in SQLite and include event settings, "
-            "a follow-up owner, next-check details, personal follow-up notes, checklist status, "
-            "and an alert threshold. PM2.5 thresholds include Elevated at "
-            "56 µg/m³, High at 151 µg/m³, and Very High at 251 µg/m³; "
-            "PSI thresholds include Moderate at 51, Unhealthy at 101, Very unhealthy "
-            "at 201, and Hazardous at 301. The dashboard "
-            "matches PM2.5 or PSI thresholds to the event-date reading type. Long-range "
-            "events have no air-quality threshold alert. Plans are separated by "
-            "browser identity. It does not send notifications or monitor continuously."
+            "personal follow-up notes, and checklist status. Plans are separated by "
+            "browser identity. The app does not send notifications or monitor continuously."
         ),
     ),
     KnowledgeChunk(

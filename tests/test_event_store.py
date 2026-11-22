@@ -70,23 +70,21 @@ class EventPlanStoreTests(unittest.TestCase):
             name="Race",
             data={
                 "checklist": {"0": True, "1": False, "2": True},
-                "safety_owner": "Alex",
-                "next_check": "5 PM",
                 "handover_note": "Monitor the venue",
             },
             updated_at="2026-11-22 11:00:00",
         )
         self.assertEqual(plan_checklist_progress(plan), (2, 3))
-        self.assertEqual(plan_followup_status(plan), "Follow-up ready")
+        self.assertEqual(plan_followup_status(plan), "Notes added")
 
     def test_plan_card_followup_needs_details(self):
         plan = EventPlan(
             id=2,
             name="Concert",
-            data={"checklist": {}, "safety_owner": "Sam"},
+            data={"checklist": {}},
             updated_at="2026-11-22 11:00:00",
         )
-        self.assertEqual(plan_followup_status(plan), "Needs follow-up details")
+        self.assertEqual(plan_followup_status(plan), "No notes")
 
     def test_editable_checklist_progress(self):
         plan = EventPlan(

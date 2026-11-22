@@ -5,18 +5,14 @@ from datetime import date, datetime
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-import folium
 import streamlit as st
 from streamlit.components.v1 import html
-from streamlit_folium import st_folium
 
 from app_common import EDUCATIONAL_DISCLAIMER, require_admin_login, require_password
-from event_location import REGION_REFERENCE_POINTS, geocode_address, nearest_region
 from event_planning import (
     FUTURE_PLANNING_HORIZON_DAYS,
     build_event_assessment,
     select_event_reading,
-    threshold_status,
 )
 from event_store import EventPlanStore, plan_checklist_progress, plan_followup_status
 
@@ -360,46 +356,21 @@ with refresh_column:
         fetch_pm25.clear()
         st.rerun()
 
-pending_region = st.session_state.pop("pending_event_region", None)
-if pending_region in REGIONS:
-    st.session_state["event_region"] = pending_region
-if st.session_state.pop("clear_event_address", False):
-    st.session_state["event_address"] = ""
-location_notice = st.session_state.pop("event_location_notice", None)
-location_notice_type = st.session_state.pop("event_location_notice_type", "info")
-st.session_state.setdefault("event_map_revision", 0)
-
-with st.sidebar:
-    st.header("Event details")
-    with st.expander("Plan information", expanded=True):
-        activity_type = st.selectbox(
-            "Event setting",
-            ["Outdoor", "Mixed indoor and outdoor", "Indoor"],
-            key="event_setting",
-        )
+with st.container(border=True):
+    st.subheader("1. Event details")
+    details_column, exposure_column = st.columns(2, gap="large")
+    with details_column:
         event_name = st.text_input(
             "Event name",
             placeholder="Required for saving",
             key="event_name",
         )
-        event_date = st.date_input("Event date", value=date.today(), key="event_date")
-        today = date.today()
-        if event_date == today:
-            st.caption("Planning mode: today — 1-hour PM2.5")
-        elif event_date > today:
-            days_until_event = (event_date - today).days
-            if days_until_event <= FUTURE_PLANNING_HORIZON_DAYS:
-                st.caption(
-                    f"Planning mode: 1–{FUTURE_PLANNING_HORIZON_DAYS} days — "
-                    "24-hour PSI; recheck on event day"
-                )
-            else:
-                st.caption(
-                    "Planning mode: beyond 7 days — long-range guidance only; "
-                    "check 1-hour PM2.5 on event day"
-                )
-        else:
-            st.caption("Planning mode: past event — 24-hour PSI retrospective context")
+        event_date = st.date_input(
+            "Event date",
+            value=date.today(),
+            min_value=date.today(),
+            key="event_date",
+        )
         duration_hours = st.number_input(
             "Expected duration (hours)",
             min_value=0.5,
@@ -408,7 +379,12 @@ with st.sidebar:
             step=0.5,
             key="event_duration",
         )
-    with st.expander("Exposure profile", expanded=True):
+        activity_type = st.selectbox(
+            "Event setting",
+            ["Outdoor", "Mixed indoor and outdoor", "Indoor"],
+            key="event_setting",
+        )
+    with exposure_column:
         activity_intensity = st.selectbox(
             "Highest activity intensity",
             ["Low", "Moderate", "Strenuous"],
@@ -420,147 +396,57 @@ with st.sidebar:
             key="event_attendee_mix",
         )
 
+        today = date.today()
+        if event_date == today:
+            st.info("Planning mode: today — 1-hour PM2.5")
+        elif event_date > today:
+            days_until_event = (event_date - today).days
+            if days_until_event <= FUTURE_PLANNING_HORIZON_DAYS:
+                st.info(
+                    f"Planning mode: 1–{FUTURE_PLANNING_HORIZON_DAYS} days — "
+                    "24-hour PSI; recheck on event day"
+                )
+            else:
+                st.warning(
+                    "Planning mode: beyond 7 days — long-range guidance only. "
+                    "Check 1-hour PM2.5 again on the event day."
+                )
+        else:
+            st.info("Planning mode: past event — 24-hour PSI retrospective context")
+
 with st.container(border=True):
-    st.subheader("Event location")
+    st.subheader("2. Event location")
     st.caption(
-        "Choose a region manually, search an address, or click the map. "
-        "Selections are estimates based on regional reference points."
+        "Choose the Singapore air-quality region closest to the event venue."
     )
-    location_column, map_column = st.columns([0.85, 1.15], gap="medium")
-    with location_column:
-        selected_region = st.selectbox(
-            "Air-quality region",
-            list(REGIONS),
-            key="event_region",
-        )
-        if location_notice:
-            if location_notice_type == "warning":
-                st.warning(location_notice)
-            else:
-                st.info(location_notice)
-        with st.form("event_address_lookup"):
-            event_address = st.text_input(
-                "Event address in Singapore",
-                key="event_address",
-                placeholder="e.g. 1 Marina Boulevard, Singapore",
-            )
-            address_submitted = st.form_submit_button("Find approximate region")
-
-        st.caption(
-            "Submitting an address sends it to OpenStreetMap's public "
-            "Nominatim geocoder. Avoid sensitive addresses; only the region "
-            "selection is needed for this dashboard."
-        )
-        st.markdown(
-            "[Geocoding by Nominatim](https://nominatim.openstreetmap.org/) · "
-            "© OpenStreetMap contributors"
-        )
-        if address_submitted:
-            if not event_address.strip():
-                st.warning("Enter an address to search.")
-            else:
-                try:
-                    with st.spinner("Looking up the address…"):
-                        place = geocode_address(event_address)
-                except (URLError, TimeoutError) as error:
-                    st.error(
-                        "Could not reach the address lookup service. Try again "
-                        "or choose a region manually."
-                    )
-                except (json.JSONDecodeError, ValueError) as error:
-                    st.error(f"Could not look up that address: {error}")
-                else:
-                    if place is None:
-                        st.warning(
-                            "No Singapore location was found. Check the address "
-                            "or choose a region manually."
-                        )
-                    else:
-                        address_region = nearest_region(*place)
-                        if address_region is None:
-                            st.warning(
-                                "The address could not be matched to a Singapore "
-                                "region. Choose a region manually."
-                            )
-                        else:
-                            st.session_state["pending_event_region"] = address_region
-                            st.session_state["clear_event_address"] = True
-                            st.session_state["event_location_notice"] = (
-                                f"Approximate match: {address_region}. "
-                                "Please confirm the region selection."
-                            )
-                            st.session_state["event_location_notice_type"] = "info"
-                            st.session_state["event_map_revision"] += 1
-                            st.rerun()
-
-    with map_column:
-        region_map = folium.Map(
-            location=(1.35735, 103.82),
-            zoom_start=10,
-            control_scale=True,
-        )
-        for region, coordinates in REGION_REFERENCE_POINTS.items():
-            folium.Marker(
-                location=coordinates,
-                tooltip=f"{region} region",
-                popup=f"{region} region reference point",
-                icon=folium.Icon(
-                    color="blue" if region == selected_region else "cadetblue",
-                    icon="map-marker",
-                ),
-            ).add_to(region_map)
-
-        map_result = st_folium(
-            region_map,
-            key=f"event_region_map_{st.session_state['event_map_revision']}",
-            height=360,
-            use_container_width=True,
-            returned_objects=["last_clicked", "last_object_clicked"],
-        )
-        clicked_point = None
-        if isinstance(map_result, dict):
-            clicked_point = map_result.get("last_clicked") or map_result.get(
-                "last_object_clicked"
-            )
-        if isinstance(clicked_point, dict):
-            latitude = clicked_point.get("lat")
-            longitude = clicked_point.get("lng")
-            if isinstance(latitude, (int, float)) and isinstance(
-                longitude, (int, float)
-            ):
-                map_region = nearest_region(latitude, longitude)
-                if map_region is None:
-                    st.session_state["event_location_notice"] = (
-                        "Click within Singapore to choose a region."
-                    )
-                    st.session_state["event_location_notice_type"] = "warning"
-                else:
-                    st.session_state["event_location_notice"] = (
-                        f"Approximate map selection: {map_region}. "
-                        "Please confirm the region selection."
-                    )
-                    st.session_state["event_location_notice_type"] = "info"
-                    st.session_state["pending_event_region"] = map_region
-                st.session_state["event_map_revision"] += 1
-                st.rerun()
+    selected_region = st.selectbox(
+        "Air-quality region",
+        list(REGIONS),
+        key="event_region",
+    )
 
 psi_snapshot = None
 pm25_snapshot = None
-with st.spinner("Loading Singapore's latest air-quality readings…"):
-    try:
-        snapshot = fetch_psi()
-    except (URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as error:
-        st.error(f"Could not load the 24-hour PSI overview: {error}")
-    else:
-        psi_snapshot = snapshot
+today = date.today()
+days_until_event = (event_date - today).days
+needs_pm25 = event_date == today
+needs_psi = 0 < days_until_event <= FUTURE_PLANNING_HORIZON_DAYS
 
-    try:
-        pm25_snapshot = fetch_pm25()
-    except (URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as error:
-        st.error(f"Could not load 1-hour PM2.5 data: {error}")
-        st.caption(
-            "Check your connection and try refreshing. No PM2.5 guidance was shown."
-        )
+with st.spinner("Loading the relevant Singapore air-quality reading…"):
+    if needs_pm25:
+        try:
+            pm25_snapshot = fetch_pm25()
+        except (URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as error:
+            st.error(f"Could not load 1-hour PM2.5 data: {error}")
+            st.caption(
+                "Check your connection and try refreshing. No PM2.5 guidance was shown."
+            )
+
+    if needs_psi and event_date > today:
+        try:
+            psi_snapshot = fetch_psi()
+        except (URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as error:
+            st.error(f"Could not load the 24-hour PSI overview: {error}")
 
 region_key = REGIONS[selected_region]
 current_pm25 = None
@@ -621,7 +507,7 @@ reading_badge = (
 )
 
 with st.container(border=True):
-    st.subheader(reading_title)
+    st.subheader(f"3. {reading_title}")
     value_column, region_column, update_column = st.columns(3)
     with value_column:
         st.metric(
@@ -653,7 +539,7 @@ with st.container(border=True):
         st.caption("Uses the 24-hour PSI overview only for retrospective planning.")
 
 with st.container(border=True):
-    st.subheader("Assessment and recommended actions")
+    st.subheader("4. Assessment and recommended actions")
     assessment = build_event_assessment(
         pm25_value=assessment_value,
         setting=activity_type,
@@ -668,10 +554,7 @@ with st.container(border=True):
     level_column.metric("Assessment level", assessment.level)
     summary_column.markdown(f"**{assessment.summary}**")
 
-    st.session_state.setdefault("event_safety_owner", "")
-    st.session_state.setdefault("event_threshold", "High (151 µg/m³)")
     st.session_state.setdefault("event_handover_note", "")
-    st.session_state.setdefault("event_next_check", "")
 
     checklist_source = (
         reading_kind,
@@ -708,63 +591,12 @@ with st.container(border=True):
     progress = completed_actions / len(checklist_items) if checklist_items else 0
     st.progress(progress, text=f"{completed_actions} of {len(checklist_items)} checklist items complete")
 
-    with st.expander("Personal follow-up and threshold settings", expanded=False):
-        control_column, alert_column = st.columns(2)
-        with control_column:
-            st.text_input("Follow-up owner", key="event_safety_owner")
-            st.text_input(
-                "Next planned check",
-                key="event_next_check",
-                placeholder="e.g. 22 Nov 2026, 5:00 PM",
-            )
-        with alert_column:
-            if reading_kind == "Planning":
-                st.info(
-                    "Alert thresholds are unavailable for long-range planning. "
-                    "Set a new threshold after checking on the event day."
-                )
-            else:
-                if st.session_state.get("event_threshold_reading_kind") != reading_kind:
-                    st.session_state["event_threshold_reading_kind"] = reading_kind
-                    st.session_state["event_threshold"] = (
-                        "High (151 µg/m³)"
-                        if reading_kind == "PM2.5"
-                        else "Unhealthy PSI (101)"
-                    )
-                threshold_options = (
-                    [
-                        "Off",
-                        "Elevated (56 µg/m³)",
-                        "High (151 µg/m³)",
-                        "Very High (251 µg/m³)",
-                    ]
-                    if reading_kind == "PM2.5"
-                    else [
-                        "Off",
-                        "Moderate PSI (51)",
-                        "Unhealthy PSI (101)",
-                        "Very unhealthy PSI (201)",
-                        "Hazardous PSI (301)",
-                    ]
-                )
-                if st.session_state["event_threshold"] not in threshold_options:
-                    st.session_state["event_threshold"] = threshold_options[-2]
-                st.selectbox(
-                    f"{reading_kind} alert threshold",
-                    threshold_options,
-                    key="event_threshold",
-                )
-                alert_status = threshold_status(
-                    assessment_value,
-                    st.session_state["event_threshold"],
-                )
-                if alert_status.startswith("ALERT"):
-                    st.error(alert_status)
-                elif alert_status.startswith("Below"):
-                    st.success(alert_status)
-                else:
-                    st.info(alert_status)
-        st.text_area("Personal follow-up notes", key="event_handover_note")
+    with st.expander("Personal follow-up notes", expanded=False):
+        st.text_area(
+            "Notes",
+            key="event_handover_note",
+            placeholder="Add private reminders or planning details",
+        )
 
     st.markdown("**Recommended actions**")
     st.caption("Confirm each item, edit the text, or remove it if it is not relevant.")
@@ -846,9 +678,6 @@ with st.container(border=True):
                     "duration_hours": float(duration_hours),
                     "activity_intensity": activity_intensity,
                     "attendee_mix": attendee_mix,
-                    "alert_threshold": st.session_state["event_threshold"],
-                    "safety_owner": st.session_state["event_safety_owner"],
-                    "next_check": st.session_state["event_next_check"],
                     "handover_note": st.session_state["event_handover_note"],
                     "checklist": checklist_state,
                     "checklist_items": checklist_items_data,
@@ -872,28 +701,20 @@ with st.container(border=True):
                 followup_status = plan_followup_status(plan)
                 status_class = (
                     "neutral"
-                    if followup_status == "No follow-up set"
-                    else "warning"
-                    if followup_status == "Needs follow-up details"
+                    if followup_status == "No notes"
                     else ""
                 )
                 plan_data = plan.data
                 card_name = escape(str(plan.name))
                 card_date = escape(str(plan_data.get("event_date", "Date not set")))
                 card_region = escape(str(plan_data.get("region", "Region not set")))
-                card_owner = escape(str(plan_data.get("safety_owner", "Not assigned")))
-                card_next_check = escape(str(plan_data.get("next_check", "Not set")))
-                card_threshold = escape(str(plan_data.get("alert_threshold", "Off")))
                 st.markdown(
                     f"""
                     <div class="clarity-plan-card">
                       <strong>{card_name}</strong>
                       <div class="clarity-plan-meta">
                         {card_date} · {card_region}<br>
-                        Follow-up owner: {card_owner}<br>
-                        Next check: {card_next_check}<br>
                         Progress: {completed}/{total} · {progress_percent}%<br>
-                        Threshold: {card_threshold}
                       </div>
                       <span class="clarity-plan-status {status_class}">{followup_status}</span>
                     </div>
@@ -908,6 +729,8 @@ with st.container(border=True):
                         st.session_state["event_date"] = date.fromisoformat(
                             data.get("event_date", date.today().isoformat())
                         )
+                        if st.session_state["event_date"] < date.today():
+                            st.session_state["event_date"] = date.today()
                         st.session_state["event_region"] = data.get("region", selected_region)
                         st.session_state["event_setting"] = data.get("setting", "Outdoor")
                         st.session_state["event_duration"] = float(data.get("duration_hours", 4))
@@ -917,11 +740,6 @@ with st.container(border=True):
                         st.session_state["event_attendee_mix"] = data.get(
                             "attendee_mix", "Healthy adults"
                         )
-                        st.session_state["event_threshold"] = data.get(
-                            "alert_threshold", "Off"
-                        )
-                        st.session_state["event_safety_owner"] = data.get("safety_owner", "")
-                        st.session_state["event_next_check"] = data.get("next_check", "")
                         st.session_state["event_handover_note"] = data.get("handover_note", "")
                         stored_items = data.get("checklist_items")
                         if isinstance(stored_items, list):
@@ -994,16 +812,9 @@ with st.container(border=True):
         f"- Activity intensity: {activity_intensity}",
         f"- Attendee mix: {attendee_mix}",
         f"- Assessment: {assessment.level}",
-        f"- Follow-up owner: {st.session_state['event_safety_owner'] or 'Not assigned'}",
-        f"- Next check: {st.session_state['event_next_check'] or 'Not set'}",
         (
             "- Personal follow-up notes: "
             f"{st.session_state['event_handover_note'] or 'None'}"
-        ),
-        (
-            "- Alert threshold: unavailable for long-range planning"
-            if reading_kind == "Planning"
-            else f"- Alert threshold: {st.session_state['event_threshold']}"
         ),
         (
             f"- Event reading: {reading_kind} {assessment_value}"

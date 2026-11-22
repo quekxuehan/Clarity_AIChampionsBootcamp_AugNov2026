@@ -8,7 +8,7 @@ require_password()
 
 st.title("About Us")
 st.markdown(
-    "Clarity SG is an educational prototype created for the AI Champions "
+    "Clarity SG is an educational prototype created by Quek Xue Han for the AI Champions "
     "Bootcamp (Aug-Nov 2026). It helps event planners review Singapore's "
     "latest 1-hour PM2.5 activity guidance by region, with a 24-hour "
     "Pollutant Standards Index (PSI) overview."
@@ -17,13 +17,11 @@ st.markdown(
 st.header("Project scope and objectives")
 st.markdown(
     """
-The project demonstrates how public environmental data feeds can be turned
-into a simple, region-based event-planning reference. It aims to:
+The project allows event planners to quickly and consistently decide whether their events will need to be cancelled in view of air quality. It aims to:
 
 - make the latest 1-hour PM2.5 guidance and 24-hour PSI snapshot easy to
   compare across Singapore's Central, East, North, South, and West regions; and
-- provide context for reviewing event plans without making an automatic
-  cancellation decision.
+- provide context for reviewing event plans.
 
 The app does not forecast conditions for a future event, issue official health
 advice, or automatically cancel or change an event.

@@ -55,7 +55,7 @@ def pm25_guidance(value: int) -> tuple[str, str | None]:
         )
     return (
         "Healthy persons should minimise all outdoor activities.",
-        "Vulnerable persons should continue to avoid all outdoor activities.",
+        "Vulnerable persons should avoid all outdoor activities.",
     )
 
 

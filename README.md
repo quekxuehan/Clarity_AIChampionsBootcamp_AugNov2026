@@ -7,8 +7,9 @@ the 24-hour PSI overview. It uses live APIs published by
 [data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/psi) for PSI.
 
 The app includes a PSI dashboard, an **About Us** page covering the project
-scope and data sources, and a **Methodology** page explaining the data flow
-and PM2.5 activity-guidance bands.
+scope and data sources, a **Methodology** page explaining the data flow and
+PM2.5 activity-guidance bands, and an **Ask Clarity** page for source-cited
+answers about the app's guidance.
 
 ## Run locally
 
@@ -18,9 +19,11 @@ and PM2.5 activity-guidance bands.
 
    ```toml
    app_password = "replace-this-with-your-own-password"
+   openai_api_key = "your-openai-api-key"
    ```
 
-   Keep this file private; it is excluded from Git.
+   Keep this file private; it is excluded from Git. Ask Clarity sends questions
+   and knowledge-base excerpts to OpenAI to create embeddings and answers.
 3. Sync dependencies:
 
    ```sh
@@ -38,10 +41,16 @@ Secrets** before sharing the app:
 
 ```toml
 app_password = "your-private-password"
+openai_api_key = "your-openai-api-key"
 ```
 
 The app uses one shared password, not individual accounts. Anyone with the
 password can access it, so do not reuse an important personal password.
+
+Ask Clarity answers questions about the app's guidance using a curated local
+knowledge base and OpenAI. It does not provide live readings, forecasts,
+medical advice, or event-cancellation decisions. Do not enter personal or
+sensitive information.
 
 Choose the event region and setting to see the current 1-hour PM2.5 band and
 its associated activity guidance:

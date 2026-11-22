@@ -65,6 +65,11 @@ st.markdown(
     """
 - The interface is built with Streamlit. PSI data is fetched with Python's
   standard-library HTTP and JSON tools; both feeds are fetched independently.
+- The **Ask Clarity** page uses OpenAI embeddings to retrieve excerpts from a
+  small, curated knowledge base and an OpenAI model to draft source-cited
+  explanations. It does not use the assistant to fetch live readings or
+  calculate PM2.5/PSI bands. Questions are sent to OpenAI; do not enter
+  personal or sensitive information.
 - The app uses one shared password stored as `app_password` in Streamlit
   secrets. Password comparison uses a constant-time comparison.
 - Event inputs are handled by Streamlit widgets; this app code does not store

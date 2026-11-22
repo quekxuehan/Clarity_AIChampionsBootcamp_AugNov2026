@@ -1,4 +1,5 @@
 import json
+import uuid
 from html import escape
 from datetime import date, datetime
 from urllib.error import URLError
@@ -6,12 +7,18 @@ from urllib.request import Request, urlopen
 
 import folium
 import streamlit as st
+from streamlit.components.v1 import html
 from streamlit_folium import st_folium
 
-from app_common import EDUCATIONAL_DISCLAIMER, require_password
+from app_common import EDUCATIONAL_DISCLAIMER, require_admin_login, require_password
 from event_location import REGION_REFERENCE_POINTS, geocode_address, nearest_region
-from event_planning import build_event_assessment, threshold_status
-from event_store import EventPlanStore, plan_checklist_progress, plan_handover_status
+from event_planning import (
+    FUTURE_PLANNING_HORIZON_DAYS,
+    build_event_assessment,
+    select_event_reading,
+    threshold_status,
+)
+from event_store import EventPlanStore, plan_checklist_progress, plan_followup_status
 
 
 PSI_API_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi"
@@ -143,6 +150,27 @@ def fetch_pm25() -> dict:
 
 st.set_page_config(page_title="Clarity SG", page_icon="🌫️", layout="wide")
 require_password()
+is_admin = require_admin_login()
+
+if "browser_owner_id" not in st.session_state:
+    cookie_owner_id = getattr(st.context, "cookies", {}).get("clarity_owner_id")
+    try:
+        browser_owner_id = str(uuid.UUID(cookie_owner_id)) if cookie_owner_id else str(uuid.uuid4())
+    except (TypeError, ValueError, AttributeError):
+        browser_owner_id = str(uuid.uuid4())
+    st.session_state["browser_owner_id"] = browser_owner_id
+
+browser_owner_id = st.session_state["browser_owner_id"]
+escaped_owner_id = json.dumps(browser_owner_id)
+html(
+    f"""
+    <script>
+      document.cookie = "clarity_owner_id={escaped_owner_id.strip('"')}; "
+        + "Max-Age=31536000; Path=/; SameSite=Lax";
+    </script>
+    """,
+    height=0,
+)
 
 st.markdown(
     """
@@ -355,6 +383,23 @@ with st.sidebar:
             key="event_name",
         )
         event_date = st.date_input("Event date", value=date.today(), key="event_date")
+        today = date.today()
+        if event_date == today:
+            st.caption("Planning mode: today — 1-hour PM2.5")
+        elif event_date > today:
+            days_until_event = (event_date - today).days
+            if days_until_event <= FUTURE_PLANNING_HORIZON_DAYS:
+                st.caption(
+                    f"Planning mode: 1–{FUTURE_PLANNING_HORIZON_DAYS} days — "
+                    "24-hour PSI; recheck on event day"
+                )
+            else:
+                st.caption(
+                    "Planning mode: beyond 7 days — long-range guidance only; "
+                    "check 1-hour PM2.5 on event day"
+                )
+        else:
+            st.caption("Planning mode: past event — 24-hour PSI retrospective context")
         duration_hours = st.number_input(
             "Expected duration (hours)",
             min_value=0.5,
@@ -522,101 +567,13 @@ current_pm25 = None
 current_psi = None
 pm25_updated_at = None
 psi_updated_at = None
+
 if pm25_snapshot is not None:
     pm25_readings = pm25_snapshot["readings"]
     pm25_updated_at = pm25_snapshot["timestamp"]
     selected_pm25 = pm25_readings.get(region_key)
     if isinstance(selected_pm25, (int, float)) and not isinstance(selected_pm25, bool):
-        selected_pm25 = int(selected_pm25)
-        current_pm25 = selected_pm25
-        pm25_category = pm25_band(selected_pm25)
-        updated_at = pm25_snapshot["timestamp"].strftime("%d %b %Y, %I:%M %p %Z")
-        st.subheader("Event planning check · 1-hour PM2.5")
-        metric_column, band_column = st.columns(2)
-        metric_column.metric(
-            f"{selected_region} region · 1-hour PM2.5",
-            f"{selected_pm25} µg/m³",
-        )
-        band_column.metric("PM2.5 band", pm25_category)
-        st.caption(f"Reading time: {updated_at} · Singapore time")
-
-        healthy_guidance, vulnerable_guidance = pm25_guidance(selected_pm25)
-        st.markdown(f"**{pm25_category} band guidance**")
-        if vulnerable_guidance is None:
-            st.write(healthy_guidance)
-        else:
-            st.write(f"Healthy persons: {healthy_guidance}")
-            st.write(
-                "Vulnerable persons (including the elderly, pregnant people, "
-                "children, and people with chronic respiratory or heart "
-                f"diseases): {vulnerable_guidance}"
-            )
-        st.caption(
-            "Guidance wording: reduce = do less; minimise = do as little as "
-            "possible; avoid = do not do the specified activity."
-        )
-        if activity_type == "Indoor":
-            st.info(
-                "This guidance concerns outdoor activities. For an indoor "
-                "event, also consider indoor air quality and official advisories."
-            )
-        else:
-            st.info(
-                "Use this activity guidance alongside your event setting, "
-                "attendee needs, official advisories, and your organisation's "
-                "event policy. It does not decide whether to cancel."
-            )
-
-        pm25_rows = []
-        for region, key in REGIONS.items():
-            value = pm25_readings.get(key)
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                value = int(value)
-                pm25_rows.append(
-                    {
-                        "Region": region,
-                        "1-hour PM2.5 (µg/m³)": value,
-                        "Band": pm25_band(value),
-                    }
-                )
-        st.subheader("Regional comparison")
-        if pm25_rows:
-            comparison_columns = st.columns(len(pm25_rows))
-            for column, row in zip(comparison_columns, sorted(pm25_rows, key=lambda item: item["Region"])):
-                band_value = row["Band"]
-                value = row["1-hour PM2.5 (µg/m³)"]
-                band_color = pm25_color(value)
-                with column:
-                    st.markdown(
-                        f"""
-                        <div class="clarity-status-card">
-                          <span>{row["Region"]}</span>
-                          <strong style="color:{band_color}">{value} µg/m³</strong>
-                          <div style="color:{band_color};font-size:0.78rem;margin-top:0.25rem;">{band_value}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-            with st.expander("View full regional data"):
-                st.dataframe(
-                    sorted(
-                        pm25_rows,
-                        key=lambda row: row["1-hour PM2.5 (µg/m³)"],
-                        reverse=True,
-                    ),
-                    hide_index=True,
-                    use_container_width=True,
-                )
-        else:
-            st.info("The live feed did not include regional PM2.5 readings.")
-    else:
-        st.error(
-            f"No current 1-hour PM2.5 reading is available for the "
-            f"{selected_region} region."
-        )
-        st.caption("No PM2.5 guidance was shown because the reading is unavailable.")
-else:
-    st.info("The PM2.5 event-planning check is unavailable until readings load.")
+        current_pm25 = int(selected_pm25)
 
 if psi_snapshot is not None:
     psi_readings = psi_snapshot["readings"]
@@ -625,40 +582,87 @@ if psi_snapshot is not None:
     if isinstance(selected_psi, (int, float)) and not isinstance(selected_psi, bool):
         current_psi = int(selected_psi)
 
-pm25_badge = pm25_band(current_pm25) if current_pm25 is not None else "Unavailable"
-pm25_badge_color = pm25_color(current_pm25) if current_pm25 is not None else "#718096"
-pm25_freshness = (
-    freshness_label(pm25_updated_at)
-    if pm25_updated_at is not None
-    else "Live feed unavailable"
+assessment_value, reading_kind = select_event_reading(
+    event_date,
+    date.today(),
+    current_pm25,
+    current_psi,
 )
-psi_freshness = (
-    freshness_label(psi_updated_at)
-    if psi_updated_at is not None
-    else "Live feed unavailable"
+
+if event_date == date.today():
+    reading_title = "Today's event · 1-hour PM2.5"
+    reading_unit = "µg/m³"
+    reading_updated_at = pm25_updated_at
+elif event_date > date.today():
+    if reading_kind == "Planning":
+        reading_title = "Long-range event · planning context only"
+        reading_unit = ""
+        reading_updated_at = None
+    else:
+        reading_title = "Future event · 24-hour PSI"
+        reading_unit = ""
+        reading_updated_at = psi_updated_at
+else:
+    reading_title = "Past event · 24-hour PSI overview"
+    reading_unit = ""
+    reading_updated_at = psi_updated_at
+
+reading_freshness = (
+    freshness_label(reading_updated_at)
+    if reading_updated_at is not None
+    else "Reading unavailable"
 )
-st.markdown(
-    f"""
-    <div class="clarity-status-strip">
-      <div class="clarity-status-card"><span>Selected region</span><strong>{selected_region}</strong></div>
-      <div class="clarity-status-card"><span>1-hour PM2.5</span><strong style="color:{pm25_badge_color}">{current_pm25 if current_pm25 is not None else '—'} µg/m³</strong><div class="{'clarity-freshness stale' if freshness_is_stale(pm25_updated_at) else 'clarity-freshness'}">{pm25_freshness}</div></div>
-      <div class="clarity-status-card"><span>24-hour PSI</span><strong>{current_psi if current_psi is not None else '—'}</strong><div class="clarity-freshness">{psi_freshness}</div></div>
-      <div class="clarity-status-card"><span>PM2.5 band</span><strong style="color:{pm25_badge_color}">{pm25_badge}</strong></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+reading_badge = (
+    pm25_band(assessment_value)
+    if reading_kind == "PM2.5" and assessment_value is not None
+    else psi_category(assessment_value)
+    if reading_kind == "PSI" and assessment_value is not None
+    else "Unavailable"
 )
 
 with st.container(border=True):
-    st.subheader("Event planning assessment")
+    st.subheader(reading_title)
+    value_column, region_column, update_column = st.columns(3)
+    with value_column:
+        st.metric(
+            f"{reading_kind} reading",
+            f"{assessment_value if assessment_value is not None else '—'}"
+            f"{' ' + reading_unit if reading_unit else ''}",
+        )
+    with region_column:
+        st.metric("Region", selected_region)
+    with update_column:
+        st.metric("Band / category", reading_badge)
+        st.caption(reading_freshness)
+
+    if event_date == date.today():
+        st.caption("Uses the latest 1-hour PM2.5 reading because the event is today.")
+    elif event_date > date.today():
+        if reading_kind == "Planning":
+            st.warning(
+                f"This event is more than {FUTURE_PLANNING_HORIZON_DAYS} days away. "
+                "Long-range air quality cannot be predicted reliably. "
+                "Use this only for initial planning; check 1-hour PM2.5 again on the event day."
+            )
+        else:
+            st.info(
+                "Uses the latest 24-hour PSI only as near-future planning context. "
+                "Check 1-hour PM2.5 again on the event day."
+            )
+    else:
+        st.caption("Uses the 24-hour PSI overview only for retrospective planning.")
+
+with st.container(border=True):
+    st.subheader("Assessment and recommended actions")
     assessment = build_event_assessment(
-        pm25_value=current_pm25,
+        pm25_value=assessment_value,
         setting=activity_type,
         intensity=activity_intensity,
         attendee_mix=attendee_mix,
         duration_hours=float(duration_hours),
         event_date=event_date,
         today=date.today(),
+        reading_kind=reading_kind,
     )
     level_column, summary_column = st.columns([0.28, 0.72])
     level_column.metric("Assessment level", assessment.level)
@@ -669,72 +673,171 @@ with st.container(border=True):
     st.session_state.setdefault("event_handover_note", "")
     st.session_state.setdefault("event_next_check", "")
 
-    completed_actions = sum(
-        1
-        for index in range(len(assessment.actions))
-        if st.session_state.get(f"assessment_action_{index}", False)
+    checklist_source = (
+        reading_kind,
+        assessment_value,
+        assessment.summary,
+        *assessment.actions,
     )
-    progress = completed_actions / len(assessment.actions) if assessment.actions else 0
-    st.progress(progress, text=f"{completed_actions} of {len(assessment.actions)} checklist items complete")
+    if (
+        "event_checklist_source" not in st.session_state
+        or st.session_state["event_checklist_source"] != checklist_source
+        or "event_checklist_items" not in st.session_state
+    ):
+        st.session_state["event_checklist_source"] = checklist_source
+        st.session_state["event_checklist_items"] = [
+            {"text": action, "completed": False}
+            for action in assessment.actions
+        ]
+        for index, item in enumerate(st.session_state["event_checklist_items"]):
+            st.session_state[f"event_checklist_text_{index}"] = item["text"]
+            st.session_state[f"event_checklist_confirm_{index}"] = item["completed"]
 
-    with st.expander("Handover and threshold settings", expanded=False):
+    checklist_items = st.session_state["event_checklist_items"]
+    for index, item in enumerate(checklist_items):
+        item["text"] = st.session_state.get(
+            f"event_checklist_text_{index}",
+            item["text"],
+        )
+        item["completed"] = st.session_state.get(
+            f"event_checklist_confirm_{index}",
+            item["completed"],
+        )
+    st.session_state["event_checklist_items"] = checklist_items
+    completed_actions = sum(1 for item in checklist_items if item["completed"])
+    progress = completed_actions / len(checklist_items) if checklist_items else 0
+    st.progress(progress, text=f"{completed_actions} of {len(checklist_items)} checklist items complete")
+
+    with st.expander("Personal follow-up and threshold settings", expanded=False):
         control_column, alert_column = st.columns(2)
         with control_column:
-            st.text_input("Safety lead / owner", key="event_safety_owner")
+            st.text_input("Follow-up owner", key="event_safety_owner")
             st.text_input(
                 "Next planned check",
                 key="event_next_check",
                 placeholder="e.g. 22 Nov 2026, 5:00 PM",
             )
         with alert_column:
-            st.selectbox(
-                "PM2.5 alert threshold",
-                [
-                    "Off",
-                    "Elevated (56 µg/m³)",
-                    "High (151 µg/m³)",
-                    "Very High (251 µg/m³)",
-                ],
-                key="event_threshold",
-            )
-            alert_status = threshold_status(current_pm25, st.session_state["event_threshold"])
-            if alert_status.startswith("ALERT"):
-                st.error(alert_status)
-            elif alert_status.startswith("Below"):
-                st.success(alert_status)
+            if reading_kind == "Planning":
+                st.info(
+                    "Alert thresholds are unavailable for long-range planning. "
+                    "Set a new threshold after checking on the event day."
+                )
             else:
-                st.info(alert_status)
-        st.text_area("Handover / shift notes", key="event_handover_note")
+                if st.session_state.get("event_threshold_reading_kind") != reading_kind:
+                    st.session_state["event_threshold_reading_kind"] = reading_kind
+                    st.session_state["event_threshold"] = (
+                        "High (151 µg/m³)"
+                        if reading_kind == "PM2.5"
+                        else "Unhealthy PSI (101)"
+                    )
+                threshold_options = (
+                    [
+                        "Off",
+                        "Elevated (56 µg/m³)",
+                        "High (151 µg/m³)",
+                        "Very High (251 µg/m³)",
+                    ]
+                    if reading_kind == "PM2.5"
+                    else [
+                        "Off",
+                        "Moderate PSI (51)",
+                        "Unhealthy PSI (101)",
+                        "Very unhealthy PSI (201)",
+                        "Hazardous PSI (301)",
+                    ]
+                )
+                if st.session_state["event_threshold"] not in threshold_options:
+                    st.session_state["event_threshold"] = threshold_options[-2]
+                st.selectbox(
+                    f"{reading_kind} alert threshold",
+                    threshold_options,
+                    key="event_threshold",
+                )
+                alert_status = threshold_status(
+                    assessment_value,
+                    st.session_state["event_threshold"],
+                )
+                if alert_status.startswith("ALERT"):
+                    st.error(alert_status)
+                elif alert_status.startswith("Below"):
+                    st.success(alert_status)
+                else:
+                    st.info(alert_status)
+        st.text_area("Personal follow-up notes", key="event_handover_note")
 
-    st.markdown("**Action checklist**")
-    checklist_column, guidance_column = st.columns([0.68, 0.32], gap="medium")
-    with checklist_column:
-        for index, action in enumerate(assessment.actions):
-            st.checkbox(action, key=f"assessment_action_{index}")
-    with guidance_column:
-        st.markdown(
-            """
-            <div class="clarity-status-card">
-              <span>Planning note</span>
-              <strong>Live conditions, not a forecast</strong>
-              <div style="color:#526175;font-size:0.88rem;margin-top:0.45rem;">
-                Recheck close to the event and use official NEA advice for decisions.
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+    st.markdown("**Recommended actions**")
+    st.caption("Confirm each item, edit the text, or remove it if it is not relevant.")
+    checklist_items = st.session_state["event_checklist_items"]
+    for index, item in enumerate(checklist_items):
+        confirmed_column, text_column, delete_column = st.columns([0.12, 0.72, 0.16])
+        with confirmed_column:
+            confirmed = st.checkbox(
+                "Done",
+                value=item["completed"],
+                key=f"event_checklist_confirm_{index}",
+            )
+        with text_column:
+            text = st.text_input(
+                "Checklist action",
+                value=item["text"],
+                key=f"event_checklist_text_{index}",
+                label_visibility="collapsed",
+            )
+        with delete_column:
+            if st.button("Remove", key=f"delete_checklist_{index}", use_container_width=True):
+                checklist_items.pop(index)
+                st.session_state["event_checklist_items"] = checklist_items
+                st.rerun()
+        checklist_items[index] = {"text": text, "completed": confirmed}
+    st.session_state["event_checklist_items"] = checklist_items
+
+    new_action_column, add_action_column = st.columns([0.84, 0.16])
+    with new_action_column:
+        new_action = st.text_input(
+            "Add a checklist action",
+            key="event_checklist_new_text",
+            placeholder="Add your own action",
         )
+    with add_action_column:
+        st.write("")
+        if st.button("Add", use_container_width=True):
+            if new_action.strip():
+                new_index = len(checklist_items)
+                checklist_items.append(
+                    {"text": new_action.strip(), "completed": False}
+                )
+                st.session_state["event_checklist_items"] = checklist_items
+                st.session_state[f"event_checklist_confirm_{new_index}"] = False
+                st.session_state[f"event_checklist_text_{new_index}"] = new_action.strip()
+                st.session_state["event_checklist_new_text"] = ""
+                st.rerun()
 
     with st.expander("Saved event plans", expanded=bool(event_name.strip())):
         plan_store = EventPlanStore()
-        saved_plans = plan_store.list_plans()
+        saved_plans = plan_store.list_plans(
+            owner_id=None if is_admin else browser_owner_id
+        )
+        st.caption(
+            "Plans are separated by browser identity, not individual accounts. "
+            "They are private from normal visitors, but should not contain sensitive information."
+        )
         save_column, delete_column = st.columns([0.72, 0.28])
         with save_column:
             if st.button("Save / update", type="primary", use_container_width=True):
+                checklist_items = st.session_state["event_checklist_items"]
                 checklist_state = {
-                    str(index): st.session_state.get(f"assessment_action_{index}", False)
-                    for index in range(len(assessment.actions))
+                    str(index): item["completed"]
+                    for index, item in enumerate(checklist_items)
                 }
+                checklist_items_data = [
+                    {
+                        "text": str(item["text"]).strip(),
+                        "completed": bool(item["completed"]),
+                    }
+                    for item in checklist_items
+                    if str(item["text"]).strip()
+                ]
                 plan_data = {
                     "event_name": event_name,
                     "event_date": event_date.isoformat(),
@@ -748,9 +851,10 @@ with st.container(border=True):
                     "next_check": st.session_state["event_next_check"],
                     "handover_note": st.session_state["event_handover_note"],
                     "checklist": checklist_state,
+                    "checklist_items": checklist_items_data,
                 }
                 try:
-                    plan_store.save(event_name, plan_data)
+                    plan_store.save(event_name, plan_data, browser_owner_id)
                 except ValueError as error:
                     st.warning(str(error))
                 else:
@@ -765,12 +869,12 @@ with st.container(border=True):
             for plan in saved_plans:
                 completed, total = plan_checklist_progress(plan)
                 progress_percent = int(completed / total * 100) if total else 0
-                handover_status = plan_handover_status(plan)
+                followup_status = plan_followup_status(plan)
                 status_class = (
                     "neutral"
-                    if handover_status == "Not handed over"
+                    if followup_status == "No follow-up set"
                     else "warning"
-                    if handover_status == "Needs handover details"
+                    if followup_status == "Needs follow-up details"
                     else ""
                 )
                 plan_data = plan.data
@@ -786,12 +890,12 @@ with st.container(border=True):
                       <strong>{card_name}</strong>
                       <div class="clarity-plan-meta">
                         {card_date} · {card_region}<br>
-                        Owner: {card_owner}<br>
+                        Follow-up owner: {card_owner}<br>
                         Next check: {card_next_check}<br>
                         Progress: {completed}/{total} · {progress_percent}%<br>
                         Threshold: {card_threshold}
                       </div>
-                      <span class="clarity-plan-status {status_class}">{handover_status}</span>
+                      <span class="clarity-plan-status {status_class}">{followup_status}</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -819,8 +923,40 @@ with st.container(border=True):
                         st.session_state["event_safety_owner"] = data.get("safety_owner", "")
                         st.session_state["event_next_check"] = data.get("next_check", "")
                         st.session_state["event_handover_note"] = data.get("handover_note", "")
-                        for index, checked in data.get("checklist", {}).items():
-                            st.session_state[f"assessment_action_{index}"] = bool(checked)
+                        stored_items = data.get("checklist_items")
+                        if isinstance(stored_items, list):
+                            loaded_items = [
+                                {
+                                    "text": str(item.get("text", "")).strip(),
+                                    "completed": bool(item.get("completed", False)),
+                                }
+                                for item in stored_items
+                                if isinstance(item, dict)
+                                and str(item.get("text", "")).strip()
+                            ]
+                        else:
+                            legacy_checklist = data.get("checklist", {})
+                            loaded_items = [
+                                {
+                                    "text": action,
+                                    "completed": bool(
+                                        legacy_checklist.get(str(index), False)
+                                    ),
+                                }
+                                for index, action in enumerate(assessment.actions)
+                            ]
+                        st.session_state["event_checklist_items"] = loaded_items
+                        st.session_state["event_checklist_source"] = (
+                            reading_kind,
+                            assessment_value,
+                            assessment.summary,
+                            *assessment.actions,
+                        )
+                        for index, item in enumerate(loaded_items):
+                            st.session_state[f"event_checklist_text_{index}"] = item["text"]
+                            st.session_state[
+                                f"event_checklist_confirm_{index}"
+                            ] = item["completed"]
                         st.rerun()
                 with delete_card_column:
                     if st.button("Delete", key=f"delete_plan_{plan.id}", use_container_width=True):
@@ -831,7 +967,10 @@ with st.container(border=True):
                     confirm_column, cancel_column = st.columns(2)
                     with confirm_column:
                         if st.button("Confirm", key=f"confirm_delete_{plan.id}", use_container_width=True):
-                            plan_store.delete(plan.id)
+                            plan_store.delete(
+                                plan.id,
+                                owner_id=None if is_admin else browser_owner_id,
+                            )
                             st.session_state["confirm_delete_plan"] = None
                             st.success("Saved event plan deleted.")
                             st.rerun()
@@ -840,7 +979,7 @@ with st.container(border=True):
                             st.session_state["confirm_delete_plan"] = None
 
     st.caption(
-        "This is an operational checklist based on the app's PM2.5 bands, "
+        f"This is an operational checklist based on the selected {reading_kind} reading, "
         "not an official advisory or a decision to cancel, modify, or proceed "
         "with an event."
     )
@@ -855,13 +994,22 @@ with st.container(border=True):
         f"- Activity intensity: {activity_intensity}",
         f"- Attendee mix: {attendee_mix}",
         f"- Assessment: {assessment.level}",
-        f"- Safety lead: {st.session_state['event_safety_owner'] or 'Not assigned'}",
+        f"- Follow-up owner: {st.session_state['event_safety_owner'] or 'Not assigned'}",
         f"- Next check: {st.session_state['event_next_check'] or 'Not set'}",
-        f"- Alert threshold: {st.session_state['event_threshold']}",
         (
-            f"- Current 1-hour PM2.5: {current_pm25} µg/m³"
-            if current_pm25 is not None
-            else "- Current 1-hour PM2.5: unavailable"
+            "- Personal follow-up notes: "
+            f"{st.session_state['event_handover_note'] or 'None'}"
+        ),
+        (
+            "- Alert threshold: unavailable for long-range planning"
+            if reading_kind == "Planning"
+            else f"- Alert threshold: {st.session_state['event_threshold']}"
+        ),
+        (
+            f"- Event reading: {reading_kind} {assessment_value}"
+            f"{' µg/m³' if reading_kind == 'PM2.5' else ''}"
+            if assessment_value is not None
+            else f"- Event reading: {reading_kind} unavailable"
         ),
         "",
         assessment.summary,
@@ -870,10 +1018,20 @@ with st.container(border=True):
     ]
     assessment_lines.extend(
         (
-            "- [x] " if st.session_state.get(f"assessment_action_{index}", False)
+            "- [x] "
+            if st.session_state.get(
+                f"event_checklist_confirm_{index}",
+                item["completed"],
+            )
             else "- [ ] "
-        ) + action
-        for index, action in enumerate(assessment.actions)
+        )
+        + str(
+            st.session_state.get(
+                f"event_checklist_text_{index}",
+                item["text"],
+            )
+        ).strip()
+        for index, item in enumerate(st.session_state["event_checklist_items"])
     )
     assessment_lines.extend(
         [
@@ -890,50 +1048,6 @@ with st.container(border=True):
         use_container_width=True,
     )
 
-st.subheader("24-hour PSI overview")
-if psi_snapshot is not None:
-    psi_readings = psi_snapshot["readings"]
-    selected_psi = psi_readings.get(region_key)
-    if isinstance(selected_psi, (int, float)) and not isinstance(selected_psi, bool):
-        selected_psi = int(selected_psi)
-        category = psi_category(selected_psi)
-        updated_at = psi_snapshot["timestamp"].strftime("%d %b %Y, %I:%M %p %Z")
-        metric_column, category_column = st.columns(2)
-        metric_column.metric(f"{selected_region} region · 24-hour PSI", selected_psi)
-        category_column.metric("PSI band", category)
-        st.caption(f"Reading time: {updated_at} · Singapore time")
-    else:
-        st.warning(
-            f"No current 24-hour PSI reading is available for the "
-            f"{selected_region} region."
-        )
-
-    psi_rows = []
-    for region, key in REGIONS.items():
-        value = psi_readings.get(key)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            value = int(value)
-            psi_rows.append(
-                {"Region": region, "24-hour PSI": value, "PSI band": psi_category(value)}
-            )
-    if psi_rows:
-        with st.expander("View PSI by region"):
-            st.dataframe(
-                sorted(psi_rows, key=lambda row: row["24-hour PSI"], reverse=True),
-                hide_index=True,
-                use_container_width=True,
-            )
-    else:
-        st.info("The live feed did not include regional PSI readings.")
-
-with st.expander("Planning limitations and source notes"):
-    st.info(
-        "The 1-hour PM2.5 guidance is a current snapshot, not a forecast for a "
-        "future event time. Readings can change. Recheck close to your event, "
-        "consult Singapore's NEA advisories, and follow your organisation's "
-        "safety policy. This tool does not automatically cancel events or provide "
-        "individual medical advice."
-    )
 st.markdown(
     "Sources: [data.gov.sg live 1-hour PM2.5 API]"
     "(https://api-open.data.gov.sg/v2/real-time/api/pm25) · "

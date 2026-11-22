@@ -14,6 +14,7 @@ class EventPlan:
     name: str
     data: dict[str, Any]
     updated_at: str
+    owner_id: str | None = None
 
 
 class EventPlanStore:
@@ -39,33 +40,59 @@ class EventPlanStore:
                 )
                 """
             )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(event_plans)").fetchall()
+            }
+            if "owner_id" not in columns:
+                connection.execute("ALTER TABLE event_plans ADD COLUMN owner_id TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_event_plans_owner "
+                "ON event_plans(owner_id)"
+            )
 
-    def list_plans(self) -> tuple[EventPlan, ...]:
+    def list_plans(self, owner_id: str | None = None) -> tuple[EventPlan, ...]:
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT id, name, data, updated_at FROM event_plans "
-                "ORDER BY updated_at DESC, name ASC"
-            ).fetchall()
+            if owner_id is None:
+                rows = connection.execute(
+                    "SELECT id, name, data, updated_at, owner_id FROM event_plans "
+                    "ORDER BY updated_at DESC, name ASC"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT id, name, data, updated_at, owner_id FROM event_plans "
+                    "WHERE owner_id = ? "
+                    "ORDER BY updated_at DESC, name ASC",
+                    (owner_id,),
+                ).fetchall()
         return tuple(
             EventPlan(
                 id=row["id"],
                 name=row["name"],
                 data=json.loads(row["data"]),
                 updated_at=row["updated_at"],
+                owner_id=row["owner_id"],
             )
             for row in rows
         )
 
-    def save(self, name: str, data: dict[str, Any]) -> int:
+    def save(self, name: str, data: dict[str, Any], owner_id: str | None = None) -> int:
         clean_name = name.strip()
         if not clean_name:
             raise ValueError("Enter an event name before saving.")
         payload = json.dumps(data, ensure_ascii=False)
         with self._connect() as connection:
-            existing = connection.execute(
-                "SELECT id FROM event_plans WHERE name = ?",
-                (clean_name,),
-            ).fetchone()
+            if owner_id is None:
+                existing = connection.execute(
+                    "SELECT id FROM event_plans "
+                    "WHERE name = ? AND owner_id IS NULL",
+                    (clean_name,),
+                ).fetchone()
+            else:
+                existing = connection.execute(
+                    "SELECT id FROM event_plans WHERE name = ? AND owner_id = ?",
+                    (clean_name, owner_id),
+                ).fetchone()
             if existing:
                 plan_id = int(existing["id"])
                 connection.execute(
@@ -75,9 +102,9 @@ class EventPlanStore:
                 )
             else:
                 cursor = connection.execute(
-                    "INSERT INTO event_plans (name, data, updated_at) "
-                    "VALUES (?, ?, datetime('now'))",
-                    (clean_name, payload),
+                    "INSERT INTO event_plans (name, data, updated_at, owner_id) "
+                    "VALUES (?, ?, datetime('now'), ?)",
+                    (clean_name, payload, owner_id),
                 )
                 plan_id = int(cursor.lastrowid)
         return plan_id
@@ -85,7 +112,8 @@ class EventPlanStore:
     def get(self, plan_id: int) -> EventPlan:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT id, name, data, updated_at FROM event_plans WHERE id = ?",
+                "SELECT id, name, data, updated_at, owner_id "
+                "FROM event_plans WHERE id = ?",
                 (plan_id,),
             ).fetchone()
         if row is None:
@@ -95,14 +123,30 @@ class EventPlanStore:
             name=row["name"],
             data=json.loads(row["data"]),
             updated_at=row["updated_at"],
+            owner_id=row["owner_id"],
         )
 
-    def delete(self, plan_id: int) -> None:
+    def delete(self, plan_id: int, owner_id: str | None = None) -> None:
         with self._connect() as connection:
-            connection.execute("DELETE FROM event_plans WHERE id = ?", (plan_id,))
+            if owner_id is None:
+                connection.execute("DELETE FROM event_plans WHERE id = ?", (plan_id,))
+            else:
+                connection.execute(
+                    "DELETE FROM event_plans WHERE id = ? AND owner_id = ?",
+                    (plan_id, owner_id),
+                )
 
 
 def plan_checklist_progress(plan: EventPlan) -> tuple[int, int]:
+    checklist_items = plan.data.get("checklist_items")
+    if isinstance(checklist_items, list):
+        total = len(checklist_items)
+        completed = sum(
+            bool(item.get("completed"))
+            for item in checklist_items
+            if isinstance(item, dict)
+        )
+        return completed, total
     checklist = plan.data.get("checklist", {})
     if not isinstance(checklist, dict):
         return 0, 0
@@ -111,12 +155,12 @@ def plan_checklist_progress(plan: EventPlan) -> tuple[int, int]:
     return completed, total
 
 
-def plan_handover_status(plan: EventPlan) -> str:
+def plan_followup_status(plan: EventPlan) -> str:
     owner = str(plan.data.get("safety_owner", "")).strip()
     next_check = str(plan.data.get("next_check", "")).strip()
     note = str(plan.data.get("handover_note", "")).strip()
     if owner and next_check:
-        return "Handover ready"
+        return "Follow-up ready"
     if owner or next_check or note:
-        return "Needs handover details"
-    return "Not handed over"
+        return "Needs follow-up details"
+    return "No follow-up set"

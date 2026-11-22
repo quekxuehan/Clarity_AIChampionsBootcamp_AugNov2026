@@ -22,10 +22,13 @@ Clarity SG brings live 1-hour PM2.5 and 24-hour Pollutant Standards Index
 Central, East, North, South, and West Singapore, choose an approximate venue
 region, and prepare for outdoor or indoor activities.
 
-The app can create an operational checklist based on the event date, duration,
-setting, activity level, and attendee mix. It does not forecast future
-conditions, provide personalised medical advice, or decide whether an event
-should be cancelled.
+The app creates an operational checklist based on the event date, duration,
+setting, activity level, and attendee mix. Events today use 1-hour PM2.5;
+future events within 7 days use 24-hour PSI for near-term context. Events
+beyond 7 days use long-range planning guidance and should be checked again
+with 1-hour PM2.5 on the event day. The app does not forecast future conditions,
+provide personalised medical advice, or decide whether an event should be
+cancelled.
 """
 )
 
@@ -47,15 +50,17 @@ st.header("What is included")
 st.markdown(
     """
 - Live PM2.5 and PSI readings with update timestamps.
-- Clear PM2.5 bands and regional comparison cards.
-- A summary showing the selected region, current readings, freshness, and
-  PM2.5 category.
+- Clear PM2.5 and PSI bands.
+- A dynamic assessment showing the relevant reading, freshness, region, and
+  category for the selected event date.
 - Singapore address lookup and a clickable region map.
 - Event Planning Assessment based on date, duration, setting, activity
   intensity, and attendee mix.
-- A checklist that can be marked complete and downloaded as Markdown.
-- Locally saved event plans with a safety lead, next check, threshold,
-  handover notes, and checklist progress.
+- A recommended checklist that can be marked complete, edited, added to,
+  deleted, and downloaded as Markdown.
+- A recheck reminder for future and long-range events.
+- Locally saved event plans with a follow-up owner, next check, threshold,
+  personal follow-up notes, and checklist progress.
 - Dashboard alerts at Elevated, High, or Very High thresholds. Alerts
   recalculate when readings refresh or a plan is loaded; they do not send
   email or push notifications.
@@ -107,8 +112,11 @@ Ask Clarity uses OpenAI to prepare answers and sends questions and retrieved
 excerpts to OpenAI for processing. It does not retrieve live readings or make
 event decisions. Do not enter personal or sensitive information.
 
-Saved event plans use local SQLite storage. Plans are available to users of the
-same app deployment, so they should not contain sensitive personal information.
+Saved event plans use local SQLite storage. Plans are separated by browser
+identity, and this deployment also supports an admin password for authorised
+administration. Browser identity and the shared app password are convenience
+controls, not strong personal-security boundaries. Do not store sensitive
+personal information.
 """
 )
 

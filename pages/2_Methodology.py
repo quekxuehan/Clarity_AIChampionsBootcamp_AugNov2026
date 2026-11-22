@@ -32,10 +32,11 @@ st.markdown(
    readings, selects the latest item, and reads `pm25_one_hourly` for PM2.5
    and `psi_twenty_four_hourly` for PSI. Invalid or missing data is reported
    rather than treated as a valid reading.
-4. **Present:** The selected region's 1-hour PM2.5 value and activity-guidance
-   band drive the event-planning check. A status strip presents the region,
-   live PM2.5, PSI, band, and data freshness. Regional comparison cards and
-   detailed tables provide a deeper view.
+4. **Select:** Today's events use the selected region's 1-hour PM2.5 value.
+   Future events within 7 days use 24-hour PSI. Future events beyond 7 days
+   use long-range planning guidance and no air-quality forecast.
+5. **Present:** The selected reading, category/band, region, freshness, and
+   event-date context drive the assessment and recommended checklist.
 """
 )
 
@@ -82,20 +83,25 @@ st.markdown(
   101-200 Unhealthy, 201-300 Very unhealthy, and above 300 Hazardous.
 - If a feed or selected regional reading is unavailable, the dashboard reports
   the problem and does not show guidance for that unavailable reading.
-- The Event Planning Assessment uses the same PM2.5 bands and adds event date,
-  duration, setting, activity intensity, and attendee mix. It generates a
+- The Event Planning Assessment uses the 1-hour PM2.5 reading and PM2.5 bands
+  for events held today. For future events it uses the 24-hour PSI reading
+  and PSI categories within 7 days. Events more than 7 days away show long-range
+  planning guidance and should be checked again using 1-hour PM2.5 on the event day.
+  Past events use PSI only as retrospective context.
+  It also uses duration, setting, activity intensity, and attendee mix. It generates a
   practical checklist, including monitoring and fallback options. The
   assessment is deterministic, does not use the reading as a future forecast,
   and does not make a cancellation decision. A Markdown checklist can be
   downloaded for event-planning records.
-- The PM2.5 threshold alert compares the selected region's current 1-hour
-  reading with a saved Elevated (56 µg/m³), High (151 µg/m³), or Very High
-  (251 µg/m³) threshold. It recalculates when readings are refreshed or a plan
-  is loaded; it does not send notifications or monitor continuously.
+- The threshold alert uses PM2.5 thresholds for today's events and PSI
+  thresholds for future events within 7 days. It recalculates when readings
+  are refreshed or a plan is loaded. Long-range events have no threshold
+  alert until 1-hour PM2.5 can be checked on the event day. It does not send
+  notifications or monitor continuously.
 - Saved-plan controls are grouped in an expandable section. The page also
-  includes a checklist progress indicator, expandable handover and threshold
+  includes a checklist progress indicator, expandable personal follow-up and threshold
   settings, explicit delete confirmation, and a Markdown checklist export.
-- Saved-plan cards derive checklist progress and handover status from stored
+- Saved-plan cards derive checklist progress and follow-up status from stored
   plan fields. Responsive CSS changes status and plan cards to fewer columns
   on tablets and one column on mobile screens.
 """
@@ -129,11 +135,12 @@ st.markdown(
 - The app uses one shared password stored as `app_password` in Streamlit
   secrets. Password comparison uses a constant-time comparison.
 - Event plans are stored locally in an SQLite database at
-  `.data/event_plans.sqlite3`. Saved plans include event settings, safety lead,
-  next-check details, threshold selection, handover notes, and checklist
-  status. The database is excluded from Git and should not contain sensitive
-  personal information. It is shared across users of the same app deployment,
-  and data may be lost if the hosting environment replaces local storage.
+  `.data/event_plans.sqlite3`. Saved plans include event settings, follow-up owner,
+  next-check details, threshold selection, personal follow-up notes, and checklist
+  status. Plans are filtered by a browser cookie and can be administered with
+  a separate `admin_password`. Browser identity is not a strong security boundary;
+  the database is excluded from Git and should not contain sensitive personal
+  information. Data may be lost if the hosting environment replaces local storage.
 - The dashboard is a live snapshot, not a forecast. API readings can change,
   and upstream service availability can affect refreshes. Follow official NEA
   advisories and organizational policy; the activity bands are not universal

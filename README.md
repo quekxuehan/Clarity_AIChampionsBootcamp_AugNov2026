@@ -15,15 +15,17 @@ answers about the app's guidance.
 
 - Live 1-hour PM2.5 and 24-hour PSI readings for Central, East, North, South,
   and West Singapore.
-- A streamlined status summary with reading freshness and PM2.5 band.
+- A dynamic event assessment: 1-hour PM2.5 today, 24-hour PSI for future
+  events within 7 days, and long-range planning guidance beyond 7 days.
+- A streamlined status summary with the relevant reading, freshness, and band.
 - Singapore address lookup and an approximate region map.
-- Regional PM2.5 comparison cards and expandable detailed tables.
+- Editable recommended actions with confirmation, text editing, add, and delete controls.
 - An Event Planning Assessment based on date, duration, event setting,
   activity intensity, and attendee mix.
 - A downloadable Markdown checklist with completed-item status.
-- Saved SQLite event plans for safety-owner, threshold, next-check,
-  handover-note, and checklist details.
-- Dashboard threshold alerts for Elevated, High, and Very High readings.
+- Browser-private SQLite event plans with follow-up owner, threshold, next-check,
+  follow-up note, and checklist details.
+- PM2.5 or PSI threshold alerts matched to the event-date reading type.
 - Source-cited Ask Clarity responses from app guidance and official NEA pages.
 
 ## Run locally
@@ -34,6 +36,7 @@ answers about the app's guidance.
 
    ```toml
    app_password = "replace-this-with-your-own-password"
+   admin_password = "replace-this-with-a-separate-admin-password"
    openai_api_key = "your-openai-api-key"
    ```
 
@@ -56,11 +59,13 @@ Secrets** before sharing the app:
 
 ```toml
 app_password = "your-private-password"
+admin_password = "your-separate-admin-password"
 openai_api_key = "your-openai-api-key"
 ```
 
-The app uses one shared password, not individual accounts. Anyone with the
-password can access it, so do not reuse an important personal password.
+The app uses one shared password, not individual accounts. Saved plans are
+separated by browser identity, but browser identity is a convenience boundary,
+not strong security. Anyone with app/database access can inspect stored plans.
 
 Ask Clarity answers questions about the app's guidance using a curated local
 guidance base and current content from NEA's air-pollution FAQs and haze
@@ -78,8 +83,8 @@ sensitive addresses. The map also loads OpenStreetMap tiles. The suggested
 region is based on the nearest reference point, not official boundary
 polygons, and can be changed manually.
 
-The selected region and event setting show the current 1-hour PM2.5 band and
-its associated activity guidance:
+The 1-hour PM2.5 reading is used for events held today and shows its associated
+activity guidance:
 
 - **Normal:** 0-55 µg/m³; all persons can continue with their activities.
 - **Elevated:** 56-150 µg/m³; healthy persons should reduce strenuous outdoor
@@ -92,24 +97,27 @@ its associated activity guidance:
 In this guidance, **reduce** means do less, **minimise** means do as little as
 possible, and **avoid** means do not do the specified activity.
 
-These are activity-guidance bands, not automatic cancellation rules. The
-dashboard also shows the 24-hour PSI reading as a separate overview.
+These are activity-guidance bands, not automatic cancellation rules.
 
-The Event Planning Assessment combines the selected regional 1-hour PM2.5
-band with event date, duration, setting, highest activity intensity, and
-attendee mix. It creates a checklist for monitoring, venue alternatives,
+The Event Planning Assessment uses the latest regional 1-hour PM2.5 reading
+for events held today and the latest 24-hour PSI overview for future events
+within 7 days. Events more than 7 days away use long-range planning guidance
+instead of an air-quality forecast. They should be checked again with 1-hour
+PM2.5 readings on the event day. Past events use 24-hour PSI only as retrospective context. The assessment also
+uses event duration, setting, highest activity intensity, and attendee mix.
+It creates a checklist for monitoring, venue alternatives,
 exposure reduction, and vulnerable attendees. The checklist can be downloaded
 as Markdown. It is operational planning support, not an official advisory,
 forecast, or automatic cancellation decision.
 
-Event plans can be saved locally in SQLite with a safety lead, next-check
-details, threshold selection, handover notes, and checklist status. The
+Event plans can be saved locally in SQLite with a follow-up owner, next-check
+details, threshold selection, personal follow-up notes, and checklist status. The
 database is stored in `.data/event_plans.sqlite3` and is excluded from Git.
-It is shared across users of the same app deployment, and should not contain
-sensitive personal information.
+Plans are separated by browser identity and are not designed for secure,
+sensitive, or personally identifiable information.
 
-Saved plans appear as cards with date, region, owner, threshold, checklist
-progress, and handover status. Each card can be loaded or deleted, with delete
+Saved plans appear as cards with date, region, follow-up owner, threshold, checklist
+progress, and follow-up status. Each card can be loaded or deleted, with delete
 confirmation to prevent accidental removal. On smaller screens, dashboard,
 status, regional, and saved-plan cards stack for easier use.
 
@@ -118,6 +126,9 @@ saved plan is loaded. It is an on-screen planning alert, not a push
 notification, continuously running monitor, forecast, or cancellation rule.
 
 Both feeds show current readings, not a forecast for a future event time.
-Recheck close to the event, consult official NEA advisories, and follow your
+Future events within 7 days may use the 24-hour PSI as near-term context.
+Longer-range events do not receive an air-quality forecast and must be checked
+again with 1-hour PM2.5 on the event day. Recheck close to the event,
+consult official NEA advisories, and follow your
 organization's safety policy. The app does not automatically cancel events or
 provide individual medical advice.

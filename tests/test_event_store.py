@@ -6,7 +6,7 @@ from event_store import (
     EventPlan,
     EventPlanStore,
     plan_checklist_progress,
-    plan_handover_status,
+    plan_followup_status,
 )
 
 
@@ -47,6 +47,23 @@ class EventPlanStoreTests(unittest.TestCase):
         self.store.delete(plan_id)
         self.assertEqual(self.store.list_plans(), ())
 
+    def test_plans_are_isolated_by_owner(self):
+        first_id = self.store.save(
+            "Concert",
+            {"region": "Central"},
+            owner_id="browser-a",
+        )
+        self.store.save("Race", {"region": "North"}, owner_id="browser-b")
+
+        first_plans = self.store.list_plans(owner_id="browser-a")
+        second_plans = self.store.list_plans(owner_id="browser-b")
+
+        self.assertEqual([plan.name for plan in first_plans], ["Concert"])
+        self.assertEqual([plan.name for plan in second_plans], ["Race"])
+
+        self.store.delete(first_id, owner_id="browser-b")
+        self.assertTrue(self.store.get(first_id).owner_id == "browser-a")
+
     def test_plan_card_status_helpers(self):
         plan = EventPlan(
             id=1,
@@ -60,16 +77,30 @@ class EventPlanStoreTests(unittest.TestCase):
             updated_at="2026-11-22 11:00:00",
         )
         self.assertEqual(plan_checklist_progress(plan), (2, 3))
-        self.assertEqual(plan_handover_status(plan), "Handover ready")
+        self.assertEqual(plan_followup_status(plan), "Follow-up ready")
 
-    def test_plan_card_handover_needs_details(self):
+    def test_plan_card_followup_needs_details(self):
         plan = EventPlan(
             id=2,
             name="Concert",
             data={"checklist": {}, "safety_owner": "Sam"},
             updated_at="2026-11-22 11:00:00",
         )
-        self.assertEqual(plan_handover_status(plan), "Needs handover details")
+        self.assertEqual(plan_followup_status(plan), "Needs follow-up details")
+
+    def test_editable_checklist_progress(self):
+        plan = EventPlan(
+            id=3,
+            name="Festival",
+            data={
+                "checklist_items": [
+                    {"text": "Prepare shade", "completed": True},
+                    {"text": "Prepare indoor fallback", "completed": False},
+                ],
+            },
+            updated_at="2026-11-22 11:00:00",
+        )
+        self.assertEqual(plan_checklist_progress(plan), (1, 2))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,55 @@
 import unittest
 from datetime import date
 
-from event_planning import build_event_assessment, threshold_status
+from event_planning import (
+    build_event_assessment,
+    select_event_reading,
+    threshold_status,
+)
 
 
 class EventPlanningTests(unittest.TestCase):
+    def test_today_event_selects_one_hour_pm25(self):
+        value, reading_kind = select_event_reading(
+            date(2026, 11, 22),
+            date(2026, 11, 22),
+            149,
+            75,
+        )
+        self.assertEqual((value, reading_kind), (149, "PM2.5"))
+
+    def test_future_event_selects_24_hour_psi(self):
+        value, reading_kind = select_event_reading(
+            date(2026, 11, 23),
+            date(2026, 11, 22),
+            149,
+            75,
+        )
+        self.assertEqual((value, reading_kind), (75, "PSI"))
+
+    def test_future_psi_reading_uses_psi_bands(self):
+        assessment = build_event_assessment(
+            pm25_value=201,
+            setting="Outdoor",
+            intensity="Strenuous",
+            attendee_mix="Vulnerable attendees",
+            duration_hours=6,
+            event_date=date(2026, 11, 23),
+            today=date(2026, 11, 22),
+            reading_kind="PSI",
+        )
+        self.assertEqual(assessment.level, "Urgent review")
+        self.assertIn("Very unhealthy PSI", assessment.summary)
+
+    def test_event_more_than_seven_days_uses_long_range_planning(self):
+        value, reading_kind = select_event_reading(
+            date(2026, 11, 30),
+            date(2026, 11, 22),
+            149,
+            75,
+        )
+        self.assertEqual((value, reading_kind), (None, "Planning"))
+
     def test_threshold_status(self):
         self.assertTrue(
             threshold_status(151, "High (151 µg/m³)").startswith("ALERT")

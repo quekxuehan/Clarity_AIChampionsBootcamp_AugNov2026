@@ -51,8 +51,10 @@ st.markdown(
 st.info(
     "NEA's air-pollution FAQs and haze guidance pages are fetched and cached "
     "for up to one hour. The dashboard remains the place for live readings. "
+    "Today's events use 1-hour PM2.5; future events within 7 days may use "
+    "24-hour PSI. Events beyond 7 days require an event-day PM2.5 recheck. "
     "Saved plans and threshold alerts are current-reading tools, not forecasts "
-    "or notifications. This assistant does not provide medical advice, "
+    "or notifications. This assistant does not provide medical advice or "
     "event-cancellation decisions. Questions and retrieved excerpts are sent "
     "to OpenAI; do not include personal or sensitive information."
 )
@@ -66,6 +68,7 @@ st.markdown(
 suggested_questions = (
     "What does Elevated PM2.5 mean?",
     "How do 1-hour PM2.5 and 24-hour PSI differ?",
+    "When should I recheck air quality for a future event?",
     "What should an outdoor event prepare for?",
 )
 st.caption("Suggested questions")

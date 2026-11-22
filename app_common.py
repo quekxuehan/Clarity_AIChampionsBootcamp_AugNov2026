@@ -24,7 +24,7 @@ def require_password() -> None:
     except (KeyError, StreamlitSecretNotFoundError):
         st.error(
             "The app password is not configured. Add `app_password` to "
-            "`.streamlit/secrets.toml` or your hosting provider's secrets."
+            ".streamlit/secrets.toml` or your hosting provider's secrets."
         )
         st.stop()
 
@@ -53,3 +53,35 @@ def require_password() -> None:
         st.error("Incorrect password. Try again.")
 
     st.stop()
+
+
+def require_admin_login() -> bool:
+    if st.session_state.get("is_admin") is True:
+        with st.sidebar:
+            if st.button("Exit admin mode", use_container_width=True):
+                st.session_state["is_admin"] = False
+                st.rerun()
+        return True
+
+    try:
+        admin_password = st.secrets["admin_password"]
+    except (KeyError, StreamlitSecretNotFoundError):
+        return False
+
+    if not isinstance(admin_password, str) or not admin_password:
+        return False
+
+    with st.sidebar.expander("Admin access", expanded=False):
+        with st.form("admin_login"):
+            entered_password = st.text_input(
+                "Admin password",
+                type="password",
+                key="entered_admin_password",
+            )
+            submitted = st.form_submit_button("Enter admin mode")
+        if submitted:
+            if hmac.compare_digest(entered_password, admin_password):
+                st.session_state["is_admin"] = True
+                st.rerun()
+            st.error("Incorrect admin password.")
+    return False

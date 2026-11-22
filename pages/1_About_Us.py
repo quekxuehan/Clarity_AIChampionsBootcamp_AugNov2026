@@ -3,21 +3,21 @@ import streamlit as st
 from app_common import EDUCATIONAL_DISCLAIMER, require_password
 
 
-st.set_page_config(page_title="About Us | Clarity SG", page_icon="🌫️", layout="wide")
+st.set_page_config(page_title="About Us | ClaritySG", page_icon="🌫️", layout="wide")
 require_password()
 
 st.title("About Us")
 st.markdown(
-    "Clarity SG is an educational air-quality planning prototype created by "
+    "ClaritySG is an air-quality planning prototype created by "
     "Quek Xue Han for the AI Champions Bootcamp (Aug-Nov 2026). It helps "
     "event planners understand live Singapore air-quality readings and turn "
     "them into practical planning checklists."
 )
 
-st.header("What Clarity SG helps you do")
+st.header("What ClaritySG helps you do")
 st.markdown(
     """
-Clarity SG brings live 1-hour PM2.5 and 24-hour Pollutant Standards Index
+ClaritySG brings live 1-hour PM2.5 and 24-hour Pollutant Standards Index
 (PSI) readings into one event-planning view. You select a Central, East,
 North, South, or West region and prepare for outdoor or indoor activities.
 
@@ -74,7 +74,7 @@ The region is a planning estimate, not an official boundary.
 st.header("Understanding PM2.5 guidance")
 st.markdown(
     """
-Clarity SG uses four PM2.5 bands:
+ClaritySG uses four PM2.5 bands:
 
 - **Normal:** continue normal activities.
 - **Elevated:** reduce strenuous outdoor activities.

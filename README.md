@@ -1,12 +1,14 @@
 # Clarity SG
 
-For AI Champions Bootcamp Aug-Nov 2026. A Streamlit app for event planners to cross-reference Singapore's latest
-24-hour PSI readings by region against an event's chosen action threshold.
-It uses the live PSI API published by [data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/psi).
+For AI Champions Bootcamp Aug-Nov 2026. A Streamlit app for event planners to
+review Singapore's latest 1-hour PM2.5 activity guidance by region, alongside
+the 24-hour PSI overview. It uses live APIs published by
+[data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/pm25) for PM2.5 and
+[data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/psi) for PSI.
 
 The app includes a PSI dashboard, an **About Us** page covering the project
 scope and data sources, and a **Methodology** page explaining the data flow
-and event-threshold logic.
+and PM2.5 activity-guidance bands.
 
 ## Run locally
 
@@ -41,12 +43,22 @@ app_password = "your-private-password"
 The app uses one shared password, not individual accounts. Anyone with the
 password can access it, so do not reuse an important personal password.
 
-Choose the event region and set the PSI value at which your organization wants
-to review or change its event plan. The default threshold is 101, the start of
-the NEA "Unhealthy" PSI band; it is only a starting point, not a universal
-cancellation rule.
+Choose the event region and setting to see the current 1-hour PM2.5 band and
+its associated activity guidance:
 
-The app displays a live 24-hour PSI snapshot, not a forecast. Recheck close to
-the event, consult official NEA advisories, and follow your organization's
-safety policy. It does not automatically cancel events or provide medical
-advice.
+- **Normal:** 0-55 µg/m³; all persons can continue with their activities.
+- **Elevated:** 56-150 µg/m³; healthy persons should reduce strenuous outdoor
+  activities; vulnerable persons should avoid strenuous outdoor activities.
+- **High:** 151-250 µg/m³; healthy persons should avoid strenuous outdoor
+  activities; vulnerable persons should avoid all outdoor activities.
+- **Very High:** above 250 µg/m³; healthy persons should minimise all outdoor
+  activities; vulnerable persons should continue to avoid all outdoor
+  activities.
+
+These are activity-guidance bands, not automatic cancellation rules. The
+dashboard also shows the 24-hour PSI reading as a separate overview.
+
+Both feeds show current readings, not a forecast for a future event time.
+Recheck close to the event, consult official NEA advisories, and follow your
+organization's safety policy. The app does not automatically cancel events or
+provide individual medical advice.

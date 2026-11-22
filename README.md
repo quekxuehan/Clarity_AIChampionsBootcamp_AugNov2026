@@ -11,6 +11,21 @@ scope and data sources, a **Methodology** page explaining the data flow and
 PM2.5 activity-guidance bands, and an **Ask Clarity** page for source-cited
 answers about the app's guidance.
 
+## Main features
+
+- Live 1-hour PM2.5 and 24-hour PSI readings for Central, East, North, South,
+  and West Singapore.
+- A streamlined status summary with reading freshness and PM2.5 band.
+- Singapore address lookup and an approximate region map.
+- Regional PM2.5 comparison cards and expandable detailed tables.
+- An Event Planning Assessment based on date, duration, event setting,
+  activity intensity, and attendee mix.
+- A downloadable Markdown checklist with completed-item status.
+- Saved SQLite event plans for safety-owner, threshold, next-check,
+  handover-note, and checklist details.
+- Dashboard threshold alerts for Elevated, High, and Very High readings.
+- Source-cited Ask Clarity responses from app guidance and official NEA pages.
+
 ## Run locally
 
 1. Install [uv](https://docs.astral.sh/uv/).
@@ -48,9 +63,12 @@ The app uses one shared password, not individual accounts. Anyone with the
 password can access it, so do not reuse an important personal password.
 
 Ask Clarity answers questions about the app's guidance using a curated local
-knowledge base and OpenAI. It does not provide live readings, forecasts,
-medical advice, or event-cancellation decisions. Do not enter personal or
-sensitive information.
+guidance base and current content from NEA's air-pollution FAQs and haze
+guidance pages. NEA content is cached for up to one hour, with a manual refresh
+option, and cited answers show when those pages were fetched. It does not
+provide live readings, forecasts, medical advice, or event-cancellation
+decisions. Questions and retrieved excerpts are sent to OpenAI; do not enter
+personal or sensitive information.
 
 Choose the event setting in the sidebar. In the **Event location** section,
 choose an air-quality region manually, click the map, or submit a Singapore
@@ -76,6 +94,28 @@ possible, and **avoid** means do not do the specified activity.
 
 These are activity-guidance bands, not automatic cancellation rules. The
 dashboard also shows the 24-hour PSI reading as a separate overview.
+
+The Event Planning Assessment combines the selected regional 1-hour PM2.5
+band with event date, duration, setting, highest activity intensity, and
+attendee mix. It creates a checklist for monitoring, venue alternatives,
+exposure reduction, and vulnerable attendees. The checklist can be downloaded
+as Markdown. It is operational planning support, not an official advisory,
+forecast, or automatic cancellation decision.
+
+Event plans can be saved locally in SQLite with a safety lead, next-check
+details, threshold selection, handover notes, and checklist status. The
+database is stored in `.data/event_plans.sqlite3` and is excluded from Git.
+It is shared across users of the same app deployment, and should not contain
+sensitive personal information.
+
+Saved plans appear as cards with date, region, owner, threshold, checklist
+progress, and handover status. Each card can be loaded or deleted, with delete
+confirmation to prevent accidental removal. On smaller screens, dashboard,
+status, regional, and saved-plan cards stack for easier use.
+
+The threshold status is recalculated when live readings are refreshed or a
+saved plan is loaded. It is an on-screen planning alert, not a push
+notification, continuously running monitor, forecast, or cancellation rule.
 
 Both feeds show current readings, not a forecast for a future event time.
 Recheck close to the event, consult official NEA advisories, and follow your

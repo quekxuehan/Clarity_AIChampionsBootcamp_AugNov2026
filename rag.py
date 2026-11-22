@@ -1,12 +1,27 @@
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from math import sqrt
 from typing import Sequence
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from openai import OpenAI
 
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 ANSWER_MODEL = "gpt-4o-mini"
+NEA_SOURCE_URLS = (
+    (
+        "NEA air pollution FAQs",
+        "https://www.nea.gov.sg/our-services/pollution-control/air-pollution/faqs",
+    ),
+    (
+        "NEA managing haze",
+        "https://www.nea.gov.sg/our-services/pollution-control/air-pollution/managing-haze",
+    ),
+)
+MAX_SOURCE_BYTES = 2_000_000
+MAX_CHUNK_CHARS = 1_200
 
 
 @dataclass(frozen=True)
@@ -59,6 +74,30 @@ KNOWLEDGE_BASE = (
         ),
     ),
     KnowledgeChunk(
+        title="Clarity SG methodology: event planning assessment",
+        content=(
+            "Clarity SG's event planning assessment combines the selected region's "
+            "current 1-hour PM2.5 band with event date, duration, indoor or outdoor "
+            "setting, activity intensity, and attendee mix. It produces a practical "
+            "checklist and supports downloading that checklist as Markdown. It does "
+            "not use current readings as a future forecast or make a cancellation "
+            "decision."
+        ),
+    ),
+    KnowledgeChunk(
+        title="Clarity SG methodology: saved plans and threshold alerts",
+        content=(
+            "Event plans can be saved locally in SQLite and include event settings, "
+            "a safety lead, next-check details, handover notes, checklist status, "
+            "and an alert threshold. Available thresholds are Off, Elevated at "
+            "56 µg/m³, High at 151 µg/m³, and Very High at 251 µg/m³. The dashboard "
+            "compares the latest selected-region reading with the threshold when the "
+            "app refreshes or a plan is loaded. It does not send notifications or "
+            "monitor continuously. The local database is shared across users of the "
+            "same app deployment and should not contain sensitive personal information."
+        ),
+    ),
+    KnowledgeChunk(
         title="data.gov.sg real-time PM2.5 API",
         content=(
             "The data.gov.sg real-time PM2.5 feed supplies regional "
@@ -85,7 +124,7 @@ KNOWLEDGE_BASE = (
         ),
         url=(
             "https://www.nea.gov.sg/our-services/pollution-control/"
-            "air-pollution/psi"
+            "air-pollution/managing-haze"
         ),
     ),
 )
@@ -94,17 +133,146 @@ KNOWLEDGE_BASE = (
 KnowledgeIndex = tuple[tuple[KnowledgeChunk, tuple[float, ...]], ...]
 
 
-def build_knowledge_index(client: OpenAI) -> KnowledgeIndex:
+class _PageTextParser(HTMLParser):
+    _BLOCK_TAGS = {
+        "article",
+        "br",
+        "dd",
+        "div",
+        "dt",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "li",
+        "p",
+        "section",
+        "td",
+        "th",
+        "tr",
+    }
+    _SKIP_TAGS = {"footer", "head", "header", "nav", "script", "style", "svg"}
+    _SKIP_CLASSES = {"skip-link"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[str] = []
+        self._text: list[str] = []
+        self._skip_depth = 0
+        self._skip_root_tag: str | None = None
+        self._section = ""
+        self._heading: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self._skip_depth:
+            if tag in self._SKIP_TAGS:
+                self._skip_depth += 1
+            return
+        classes = next((value for name, value in attrs if name == "class"), "") or ""
+        if tag in self._SKIP_TAGS or self._SKIP_CLASSES.intersection(classes.split()):
+            self.flush()
+            self._skip_depth = 1
+            self._skip_root_tag = tag
+        elif tag in {"h1", "h2", "h3", "h4"}:
+            self.flush()
+            self._heading = []
+        elif tag in self._BLOCK_TAGS:
+            self.flush()
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._skip_depth:
+            if tag == self._skip_root_tag:
+                self._skip_depth -= 1
+                self._skip_root_tag = None
+            elif tag in self._SKIP_TAGS:
+                self._skip_depth -= 1
+            return
+        if tag in {"h1", "h2", "h3", "h4"} and self._heading is not None:
+            self._section = " ".join("".join(self._heading).split())
+            self._heading = None
+        elif tag in self._BLOCK_TAGS:
+            self.flush()
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        if self._heading is not None:
+            self._heading.append(data)
+        else:
+            self._text.append(data)
+
+    def flush(self) -> None:
+        text = " ".join("".join(self._text).split())
+        self._text.clear()
+        if text:
+            self.blocks.append(f"{self._section}: {text}" if self._section else text)
+
+
+def _split_text(text: str, max_chars: int = MAX_CHUNK_CHARS) -> tuple[str, ...]:
+    words = text.split()
+    chunks: list[str] = []
+    current: list[str] = []
+    current_length = 0
+    for word in words:
+        extra_length = len(word) + (1 if current else 0)
+        if current and current_length + extra_length > max_chars:
+            chunks.append(" ".join(current))
+            current = []
+            current_length = 0
+            extra_length = len(word)
+        current.append(word)
+        current_length += extra_length
+    if current:
+        chunks.append(" ".join(current))
+    return tuple(chunks)
+
+
+def fetch_nea_sources() -> tuple[KnowledgeChunk, ...]:
+    chunks: list[KnowledgeChunk] = []
+    for title, url in NEA_SOURCE_URLS:
+        request = Request(url, headers={"User-Agent": "ClaritySG/1.0"})
+        with urlopen(request, timeout=10) as response:
+            if urlparse(response.geturl()).hostname != "www.nea.gov.sg":
+                raise ValueError(f"{title} redirected outside the NEA website.")
+            content = response.read(MAX_SOURCE_BYTES + 1)
+
+        if len(content) > MAX_SOURCE_BYTES:
+            raise ValueError(f"{title} exceeded the maximum download size.")
+        try:
+            html = content.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError(f"{title} was not valid UTF-8.") from error
+
+        parser = _PageTextParser()
+        parser.feed(html)
+        parser.close()
+        parser.flush()
+        if not parser.blocks:
+            raise ValueError(f"{title} did not contain readable page content.")
+        for block in parser.blocks:
+            chunks.extend(
+                KnowledgeChunk(title=title, content=part, url=url)
+                for part in _split_text(block)
+            )
+    if not chunks:
+        raise ValueError("No readable content was retrieved from NEA.")
+    return tuple(chunks)
+
+
+def build_knowledge_index(
+    client: OpenAI,
+    knowledge_base: Sequence[KnowledgeChunk] = KNOWLEDGE_BASE,
+) -> KnowledgeIndex:
     response = client.embeddings.create(
         model=EMBEDDING_MODEL,
-        input=[chunk.content for chunk in KNOWLEDGE_BASE],
+        input=[chunk.content for chunk in knowledge_base],
     )
     vectors = sorted(response.data, key=lambda item: item.index)
-    if len(vectors) != len(KNOWLEDGE_BASE):
+    if len(vectors) != len(knowledge_base):
         raise ValueError("The embeddings response did not cover the knowledge base.")
     return tuple(
         (chunk, tuple(vector.embedding))
-        for chunk, vector in zip(KNOWLEDGE_BASE, vectors, strict=True)
+        for chunk, vector in zip(knowledge_base, vectors, strict=True)
     )
 
 

@@ -1,20 +1,37 @@
+from datetime import datetime
 import re
+from urllib.error import URLError
 
 import streamlit as st
 from openai import APIError, OpenAI
 
 from app_common import EDUCATIONAL_DISCLAIMER, require_password
 from rag import (
+    KNOWLEDGE_BASE,
+    KnowledgeChunk,
     KnowledgeIndex,
     build_knowledge_index,
+    fetch_nea_sources,
     generate_answer,
     retrieve_chunks,
 )
 
 
 @st.cache_resource(show_spinner=False)
-def cached_knowledge_index(api_key: str) -> KnowledgeIndex:
-    return build_knowledge_index(OpenAI(api_key=api_key))
+def cached_knowledge_index(
+    api_key: str, source_chunks: tuple[KnowledgeChunk, ...]
+) -> KnowledgeIndex:
+    return build_knowledge_index(
+        OpenAI(api_key=api_key),
+        (*KNOWLEDGE_BASE, *source_chunks),
+    )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_nea_knowledge() -> tuple[str, tuple[KnowledgeChunk, ...]]:
+    source_chunks = fetch_nea_sources()
+    fetched_at = datetime.now().astimezone().isoformat()
+    return fetched_at, source_chunks
 
 
 st.set_page_config(
@@ -26,16 +43,42 @@ require_password()
 
 st.title("Ask Clarity")
 st.markdown(
-    "Ask about Clarity SG's PM2.5 activity guidance, PSI bands, and data "
-    "sources. Answers are generated from the app's knowledge base and include "
-    "source references."
+    "Ask about Clarity SG's PM2.5 activity guidance, PSI bands, haze, and "
+    "air-quality, event-assessment, saved-plan, and threshold-alert questions. "
+    "Answers use the app's guidance plus current information retrieved from "
+    "official NEA pages, with source references."
 )
 st.info(
-    "This assistant explains the app's guidance; it does not provide live "
-    "readings, forecasts, medical advice, or event-cancellation decisions. "
-    "Questions are sent to OpenAI to generate embeddings and answers. Do not "
-    "include personal or sensitive information."
+    "NEA's air-pollution FAQs and haze guidance pages are fetched and cached "
+    "for up to one hour. The dashboard remains the place for live readings. "
+    "Saved plans and threshold alerts are current-reading tools, not forecasts "
+    "or notifications. This assistant does not provide medical advice, "
+    "event-cancellation decisions. Questions and retrieved excerpts are sent "
+    "to OpenAI; do not include personal or sensitive information."
 )
+st.markdown(
+    "[NEA air-pollution FAQs]"
+    "(https://www.nea.gov.sg/our-services/pollution-control/air-pollution/faqs) · "
+    "[NEA managing haze]"
+    "(https://www.nea.gov.sg/our-services/pollution-control/air-pollution/managing-haze)"
+)
+
+suggested_questions = (
+    "What does Elevated PM2.5 mean?",
+    "How do 1-hour PM2.5 and 24-hour PSI differ?",
+    "What should an outdoor event prepare for?",
+)
+st.caption("Suggested questions")
+suggested_column = st.columns(len(suggested_questions))
+for column, suggestion in zip(suggested_column, suggested_questions):
+    if column.button(suggestion, use_container_width=True):
+        st.session_state["ask_clarity_question"] = suggestion
+        st.rerun()
+
+if st.button("Refresh NEA sources now"):
+    cached_nea_knowledge.clear()
+    cached_knowledge_index.clear()
+    st.rerun()
 
 api_key = st.secrets.get("openai_api_key")
 if not isinstance(api_key, str) or not api_key.strip():
@@ -50,6 +93,7 @@ with st.form("ask_clarity"):
         "Your question",
         placeholder="What does the Elevated PM2.5 band mean?",
         max_chars=1000,
+        key="ask_clarity_question",
     )
     submitted = st.form_submit_button("Ask", type="primary")
 
@@ -61,19 +105,28 @@ if submitted:
     try:
         client = OpenAI(api_key=api_key.strip())
         with st.spinner("Searching the guidance and preparing an answer…"):
-            index = cached_knowledge_index(api_key.strip())
+            fetched_at, source_chunks = cached_nea_knowledge()
+            index = cached_knowledge_index(api_key.strip(), source_chunks)
             retrieved = retrieve_chunks(client, index, question.strip())
             answer = generate_answer(client, retrieved, question.strip())
+    except (URLError, TimeoutError) as error:
+        st.error(f"Could not retrieve current NEA source pages: {error}")
+        st.stop()
     except APIError as error:
         st.error(f"Could not get an answer from OpenAI: {error}")
         st.stop()
     except ValueError as error:
-        st.error(f"Could not prepare a source-grounded answer: {error}")
+        st.error(f"Could not prepare a current source-grounded answer: {error}")
         st.stop()
 
+    fetched_time = datetime.fromisoformat(fetched_at).strftime(
+        "%d %b %Y, %I:%M %p %Z"
+    )
+    st.caption(f"NEA source pages last fetched: {fetched_time}")
     if answer == "NOT_FOUND":
         st.info(
-            "I couldn't find an answer to that in the current knowledge base. "
+            "I couldn't find an answer to that in the current app and NEA "
+            "sources. "
             "Check the linked official sources or rephrase the question."
         )
     else:

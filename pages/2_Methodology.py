@@ -33,8 +33,9 @@ st.markdown(
    and `psi_twenty_four_hourly` for PSI. Invalid or missing data is reported
    rather than treated as a valid reading.
 4. **Present:** The selected region's 1-hour PM2.5 value and activity-guidance
-   band drive the event-planning check. The 24-hour PSI value and band remain
-   available as a separate overview.
+   band drive the event-planning check. A status strip presents the region,
+   live PM2.5, PSI, band, and data freshness. Regional comparison cards and
+   detailed tables provide a deeper view.
 """
 )
 
@@ -81,6 +82,22 @@ st.markdown(
   101-200 Unhealthy, 201-300 Very unhealthy, and above 300 Hazardous.
 - If a feed or selected regional reading is unavailable, the dashboard reports
   the problem and does not show guidance for that unavailable reading.
+- The Event Planning Assessment uses the same PM2.5 bands and adds event date,
+  duration, setting, activity intensity, and attendee mix. It generates a
+  practical checklist, including monitoring and fallback options. The
+  assessment is deterministic, does not use the reading as a future forecast,
+  and does not make a cancellation decision. A Markdown checklist can be
+  downloaded for event-planning records.
+- The PM2.5 threshold alert compares the selected region's current 1-hour
+  reading with a saved Elevated (56 µg/m³), High (151 µg/m³), or Very High
+  (251 µg/m³) threshold. It recalculates when readings are refreshed or a plan
+  is loaded; it does not send notifications or monitor continuously.
+- Saved-plan controls are grouped in an expandable section. The page also
+  includes a checklist progress indicator, expandable handover and threshold
+  settings, explicit delete confirmation, and a Markdown checklist export.
+- Saved-plan cards derive checklist progress and handover status from stored
+  plan fields. Responsive CSS changes status and plan cards to fewer columns
+  on tablets and one column on mobile screens.
 """
 )
 
@@ -90,29 +107,33 @@ st.markdown(
 - The interface is built with Streamlit. PSI data is fetched with Python's
   standard-library HTTP and JSON tools; both feeds are fetched independently.
 - **Ask Clarity RAG flow:**
-  1. The app creates embeddings for its small, curated set of guidance and
-     source-summary excerpts with OpenAI's `text-embedding-3-small` model.
-     The resulting vector index is cached in the Streamlit process; it is
-     not a persistent vector database.
-  2. When a question is submitted, the app embeds it, ranks the excerpts by
-     cosine similarity, and supplies the three closest excerpts to
-     `gpt-4o-mini`.
+  1. On a question, the app fetches the NEA air-pollution FAQs and managing
+     haze pages over HTTPS. Successful page content is cached for up to one
+     hour; users can also request an immediate refresh. The retrieval corpus
+     combines those pages with the app's curated guidance excerpts.
+  2. The app creates embeddings for the corpus and caches the in-memory vector
+     index. When a question is submitted, it embeds the question, ranks
+     excerpts by cosine similarity, and supplies the three closest excerpts
+     to `gpt-4o-mini`.
   3. The model is instructed to answer only from those excerpts, cite them
      with source IDs, and return `NOT_FOUND` when the excerpts do not answer
      the question. The app displays an answer only when it contains valid
-     citations to retrieved excerpts, then lists the cited sources and links
-     where available.
-- The RAG knowledge base is curated in the app; it does not crawl or
-  continuously refresh external documents. Ask Clarity does not fetch live
-  readings or calculate PM2.5/PSI bands. Those remain the dashboard's
-  deterministic data flow described above.
+     citations, lists the cited sources, and shows when the NEA pages were
+     last fetched.
+- Ask Clarity retrieves only the listed NEA pages; it does not crawl the
+  wider web, fetch live readings, or calculate PM2.5/PSI bands. Current
+  readings and deterministic bands remain in the dashboard.
 - Questions and retrieved excerpts are sent to OpenAI for embeddings and
   answer generation. The API key is stored in Streamlit secrets; do not enter
   personal or sensitive information.
 - The app uses one shared password stored as `app_password` in Streamlit
   secrets. Password comparison uses a constant-time comparison.
-- Event inputs are handled by Streamlit widgets; this app code does not store
-  event details in a database.
+- Event plans are stored locally in an SQLite database at
+  `.data/event_plans.sqlite3`. Saved plans include event settings, safety lead,
+  next-check details, threshold selection, handover notes, and checklist
+  status. The database is excluded from Git and should not contain sensitive
+  personal information. It is shared across users of the same app deployment,
+  and data may be lost if the hosting environment replaces local storage.
 - The dashboard is a live snapshot, not a forecast. API readings can change,
   and upstream service availability can affect refreshes. Follow official NEA
   advisories and organizational policy; the activity bands are not universal

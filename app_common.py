@@ -34,6 +34,31 @@ def require_password() -> None:
 
     if st.session_state.get("authenticated") is True:
         with st.sidebar:
+            st.caption("Navigation")
+            st.page_link(
+                "streamlit_app.py",
+                label="ClaritySG (Home)",
+                icon="🌫️",
+                use_container_width=True,
+            )
+            st.page_link(
+                "pages/1_About_Us.py",
+                label="About Us",
+                icon="ℹ️",
+                use_container_width=True,
+            )
+            st.page_link(
+                "pages/2_Methodology.py",
+                label="Methodology",
+                icon="📊",
+                use_container_width=True,
+            )
+            st.page_link(
+                "pages/3_Ask_Clarity.py",
+                label="Ask Clarity",
+                icon="💬",
+                use_container_width=True,
+            )
             if st.button("Log out", use_container_width=True):
                 st.session_state["authenticated"] = False
                 st.rerun()

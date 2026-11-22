@@ -1,11 +1,10 @@
-import hmac
 import json
 from datetime import datetime
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import streamlit as st
-from streamlit.errors import StreamlitSecretNotFoundError
+from app_common import EDUCATIONAL_DISCLAIMER, require_password
 
 
 PSI_API_URL = "https://api-open.data.gov.sg/v2/real-time/api/psi"
@@ -16,8 +15,6 @@ REGIONS = {
     "South": "south",
     "West": "west",
 }
-
-
 def psi_category(value: int) -> str:
     if value <= 50:
         return "Good"
@@ -68,38 +65,6 @@ def fetch_psi() -> dict:
     return {"readings": readings, "timestamp": timestamp}
 
 
-def require_password() -> None:
-    try:
-        app_password = st.secrets["app_password"]
-    except (KeyError, StreamlitSecretNotFoundError):
-        st.error(
-            "The app password is not configured. Add `app_password` to "
-            "`.streamlit/secrets.toml` or your hosting provider's secrets."
-        )
-        st.stop()
-
-    if not isinstance(app_password, str) or not app_password:
-        st.error("The configured app password must be a non-empty string.")
-        st.stop()
-
-    if st.session_state.get("authenticated") is True:
-        return
-
-    st.title("🌫️ Clarity SG")
-    st.subheader("Password required")
-    with st.form("password_login"):
-        entered_password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Unlock app")
-
-    if submitted:
-        if hmac.compare_digest(entered_password, app_password):
-            st.session_state["authenticated"] = True
-            st.rerun()
-        st.error("Incorrect password. Try again.")
-
-    st.stop()
-
-
 st.set_page_config(page_title="Clarity SG", page_icon="🌫️", layout="wide")
 require_password()
 
@@ -111,10 +76,6 @@ st.markdown(
 
 with st.sidebar:
     st.header("Event settings")
-    if st.button("Log out", use_container_width=True):
-        st.session_state["authenticated"] = False
-        st.rerun()
-
     event_name = st.text_input("Event name", value="My event")
     activity_type = st.selectbox(
         "Event setting",
@@ -224,3 +185,4 @@ st.markdown(
     "[NEA air pollution information]"
     "(https://www.nea.gov.sg/our-services/pollution-control/air-pollution/psi)"
 )
+st.caption(EDUCATIONAL_DISCLAIMER)

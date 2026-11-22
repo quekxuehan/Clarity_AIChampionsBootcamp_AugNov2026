@@ -4,6 +4,10 @@ For AI Champions Bootcamp Aug-Nov 2026. A Streamlit app for event planners to cr
 24-hour PSI readings by region against an event's chosen action threshold.
 It uses the live PSI API published by [data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/psi).
 
+The app includes a PSI dashboard, an **About Us** page covering the project
+scope and data sources, and a **Methodology** page explaining the data flow
+and event-threshold logic.
+
 ## Run locally
 
 1. Install [uv](https://docs.astral.sh/uv/).

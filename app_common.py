@@ -1,0 +1,55 @@
+import hmac
+
+import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
+
+
+EDUCATIONAL_DISCLAIMER = (
+    "**IMPORTANT NOTICE:** This web application is a prototype developed "
+    "for **educational purposes only.** The information provided here is "
+    "**NOT intended for real-world usage** and should not be relied upon "
+    "for making any decisions, especially those related to financial, "
+    "legal, or healthcare matters.\n\n"
+    "**Furthermore, please be aware that the LLM may generate inaccurate "
+    "or incorrect information. You assume full responsibility for how you "
+    "use any generated output.**\n\n"
+    "Always consult with qualified professionals for accurate and "
+    "personalised advice."
+)
+
+
+def require_password() -> None:
+    try:
+        app_password = st.secrets["app_password"]
+    except (KeyError, StreamlitSecretNotFoundError):
+        st.error(
+            "The app password is not configured. Add `app_password` to "
+            "`.streamlit/secrets.toml` or your hosting provider's secrets."
+        )
+        st.stop()
+
+    if not isinstance(app_password, str) or not app_password:
+        st.error("The configured app password must be a non-empty string.")
+        st.stop()
+
+    if st.session_state.get("authenticated") is True:
+        with st.sidebar:
+            if st.button("Log out", use_container_width=True):
+                st.session_state["authenticated"] = False
+                st.rerun()
+        return
+
+    st.title("🌫️ Clarity SG")
+    st.subheader("Password required")
+    st.warning(EDUCATIONAL_DISCLAIMER)
+    with st.form("password_login"):
+        entered_password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Unlock app")
+
+    if submitted:
+        if hmac.compare_digest(entered_password, app_password):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        st.error("Incorrect password. Try again.")
+
+    st.stop()

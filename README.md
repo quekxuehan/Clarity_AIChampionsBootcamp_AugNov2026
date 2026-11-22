@@ -1,25 +1,48 @@
-# 🎈 Blank app template
+# Clarity SG
 
-A simple Streamlit app template for you to modify!
+For AI Champions Bootcamp Aug-Nov 2026. A Streamlit app for event planners to cross-reference Singapore's latest
+24-hour PSI readings by region against an event's chosen action threshold.
+It uses the live PSI API published by [data.gov.sg](https://api-open.data.gov.sg/v2/real-time/api/psi).
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## Run locally
 
-### How to run it on your own machine
+1. Install [uv](https://docs.astral.sh/uv/).
+2. Create a `.streamlit` folder if needed, then create
+   `.streamlit/secrets.toml` and choose a private password:
 
-Prerequisite: install `uv` if you don't already have it.
+   ```toml
+   app_password = "replace-this-with-your-own-password"
+   ```
 
+   Keep this file private; it is excluded from Git.
+3. Sync dependencies:
+
+   ```sh
+   uv sync
+   ```
+
+4. Start the app:
+
+   ```sh
+   uv run streamlit run streamlit_app.py
+   ```
+
+For Streamlit Community Cloud, add the same setting in the app's **Settings →
+Secrets** before sharing the app:
+
+```toml
+app_password = "your-private-password"
 ```
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-```
 
-1. Sync the dependencies
+The app uses one shared password, not individual accounts. Anyone with the
+password can access it, so do not reuse an important personal password.
 
-   ```
-   $ uv sync
-   ```
+Choose the event region and set the PSI value at which your organization wants
+to review or change its event plan. The default threshold is 101, the start of
+the NEA "Unhealthy" PSI band; it is only a starting point, not a universal
+cancellation rule.
 
-2. Run the app
-
-   ```
-   $ uv run streamlit run streamlit_app.py
-   ```
+The app displays a live 24-hour PSI snapshot, not a forecast. Recheck close to
+the event, consult official NEA advisories, and follow your organization's
+safety policy. It does not automatically cancel events or provide medical
+advice.

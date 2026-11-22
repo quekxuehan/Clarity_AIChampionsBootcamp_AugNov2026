@@ -35,7 +35,7 @@ def cached_nea_knowledge() -> tuple[str, tuple[KnowledgeChunk, ...]]:
 
 
 st.set_page_config(
-    page_title="Ask Clarity | Clarity SG",
+    page_title="Ask Clarity | ClaritySG",
     page_icon="🌫️",
     layout="wide",
 )
@@ -43,7 +43,7 @@ require_password()
 
 st.title("Ask Clarity")
 st.markdown(
-    "Ask about Clarity SG's PM2.5 activity guidance, PSI bands, haze, and "
+    "Ask about ClaritySG's PM2.5 activity guidance, PSI bands, haze, and "
     "air-quality, event-assessment, and saved-plan questions. "
     "Answers use the app's guidance plus current information retrieved from "
     "official NEA pages, with source references."
@@ -151,6 +151,6 @@ if submitted:
                 if source.url:
                     st.markdown(f"- [{source.title}]({source.url})")
                 else:
-                    st.markdown(f"- {source.title} (Clarity SG methodology)")
+                    st.markdown(f"- {source.title} (ClaritySG methodology)")
 
 st.caption(EDUCATIONAL_DISCLAIMER)

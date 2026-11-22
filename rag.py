@@ -33,9 +33,9 @@ class KnowledgeChunk:
 
 KNOWLEDGE_BASE = (
     KnowledgeChunk(
-        title="Clarity SG methodology: 1-hour PM2.5 guidance",
+        title="ClaritySG methodology: 1-hour PM2.5 guidance",
         content=(
-            "Clarity SG uses the latest regional 1-hour PM2.5 reading for its "
+            "ClaritySG uses the latest regional 1-hour PM2.5 reading for its "
             "activity-guidance band. Normal is 0-55 µg/m³: all persons can "
             "continue with their activities. Elevated is 56-150 µg/m³: "
             "healthy persons should reduce strenuous outdoor activities; "
@@ -52,9 +52,9 @@ KNOWLEDGE_BASE = (
         ),
     ),
     KnowledgeChunk(
-        title="Clarity SG methodology: 24-hour PSI",
+        title="ClaritySG methodology: 24-hour PSI",
         content=(
-            "Clarity SG uses 24-hour PSI for future events within 7 days as "
+            "ClaritySG uses 24-hour PSI for future events within 7 days as "
             "near-term planning context, not for events beyond 7 days or as a "
             "forecast. The app labels PSI values 0-50 Good, "
             "51-100 Moderate, 101-200 Unhealthy, 201-300 Very unhealthy, and "
@@ -62,7 +62,7 @@ KNOWLEDGE_BASE = (
         ),
     ),
     KnowledgeChunk(
-        title="Clarity SG methodology: live readings and limitations",
+        title="ClaritySG methodology: live readings and limitations",
         content=(
             "The dashboard fetches current readings from the data.gov.sg "
             "real-time PSI and PM2.5 APIs. Successful feed results are cached "
@@ -77,9 +77,9 @@ KNOWLEDGE_BASE = (
         ),
     ),
     KnowledgeChunk(
-        title="Clarity SG methodology: event planning assessment",
+        title="ClaritySG methodology: event planning assessment",
         content=(
-            "Clarity SG's event planning assessment combines the selected region's "
+            "ClaritySG's event planning assessment combines the selected region's "
             "current 1-hour PM2.5 band for events held today, or the 24-hour PSI "
             "category for future events within 7 days. Events beyond 7 days use "
             "long-range planning context without an air-quality forecast and should "
@@ -93,7 +93,7 @@ KNOWLEDGE_BASE = (
         ),
     ),
     KnowledgeChunk(
-        title="Clarity SG methodology: saved plans",
+        title="ClaritySG methodology: saved plans",
         content=(
             "Event plans can be saved locally in SQLite and include event settings, "
             "personal follow-up notes, and checklist status. Plans are separated by "
@@ -104,7 +104,7 @@ KNOWLEDGE_BASE = (
         title="data.gov.sg real-time PM2.5 API",
         content=(
             "The data.gov.sg real-time PM2.5 feed supplies regional "
-            "pm25_one_hourly readings used by Clarity SG."
+            "pm25_one_hourly readings used by ClaritySG."
         ),
         url="https://api-open.data.gov.sg/v2/real-time/api/pm25",
     ),
@@ -112,7 +112,7 @@ KNOWLEDGE_BASE = (
         title="data.gov.sg real-time PSI API",
         content=(
             "The data.gov.sg real-time PSI feed supplies "
-            "psi_twenty_four_hourly readings used by Clarity SG."
+            "psi_twenty_four_hourly readings used by ClaritySG."
         ),
         url="https://api-open.data.gov.sg/v2/real-time/api/psi",
     ),
@@ -120,7 +120,7 @@ KNOWLEDGE_BASE = (
         title="NEA air pollution information",
         content=(
             "For official air-pollution information and advisories, consult "
-            "Singapore's National Environment Agency (NEA). Clarity SG is an "
+            "Singapore's National Environment Agency (NEA). ClaritySG is an "
             "educational prototype and its activity bands are not a "
             "substitute for official advisories or personalised professional "
             "advice."

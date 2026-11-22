@@ -144,7 +144,7 @@ def fetch_pm25() -> dict:
     return fetch_readings(PM25_API_URL, "pm25_one_hourly", "PM2.5")
 
 
-st.set_page_config(page_title="Clarity SG", page_icon="🌫️", layout="wide")
+st.set_page_config(page_title="ClaritySG", page_icon="🌫️", layout="wide")
 require_password()
 is_admin = require_admin_login()
 
@@ -345,7 +345,7 @@ st.markdown(
 
 title_column, refresh_column = st.columns([0.78, 0.22], vertical_alignment="center")
 with title_column:
-    st.title("Clarity SG")
+    st.title("ClaritySG")
     st.markdown(
         "Singapore air-quality planning for events, with live readings, "
         "practical checklists, and saved plans."

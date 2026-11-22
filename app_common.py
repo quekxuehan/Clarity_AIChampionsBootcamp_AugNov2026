@@ -39,7 +39,7 @@ def require_password() -> None:
                 st.rerun()
         return
 
-    st.title("🌫️ Clarity SG")
+    st.title("🌫️ ClaritySG")
     st.subheader("Password required")
     st.warning(EDUCATIONAL_DISCLAIMER)
     with st.form("password_login"):

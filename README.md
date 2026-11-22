@@ -1,4 +1,4 @@
-# Clarity SG
+# ClaritySG
 
 For AI Champions Bootcamp Aug-Nov 2026. A Streamlit app for event planners to
 review Singapore's latest 1-hour PM2.5 activity guidance by region, alongside

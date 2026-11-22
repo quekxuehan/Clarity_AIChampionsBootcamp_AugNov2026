@@ -4,7 +4,7 @@ from app_common import EDUCATIONAL_DISCLAIMER, require_password
 
 
 st.set_page_config(
-    page_title="Methodology | Clarity SG",
+    page_title="Methodology | ClaritySG",
     page_icon="🌫️",
     layout="wide",
 )
@@ -12,7 +12,7 @@ require_password()
 
 st.title("Methodology")
 st.markdown(
-    "This page describes how Clarity SG retrieves, validates, and presents "
+    "This page describes how ClaritySG retrieves, validates, and presents "
     "1-hour PM2.5 and 24-hour PSI data, how its activity-guidance bands are "
     "selected, and how Ask Clarity answers questions using retrieval-augmented "
     "generation (RAG)."
@@ -53,42 +53,32 @@ st.markdown(
 st.header("How the PM2.5 activity guidance works")
 st.markdown(
     """
-- The user selects an event setting and can select a region manually.
-  The selected region's 1-hour PM2.5 reading is assigned to one of four
-  activity-guidance bands:
-  Normal (0-55 µg/m³), Elevated (56-150 µg/m³), High (151-250 µg/m³), or
-  Very High (above 250 µg/m³).
-- Normal: all persons can continue with their activities.
-- Elevated: healthy persons should reduce strenuous outdoor activities;
-  vulnerable persons should avoid strenuous outdoor activities.
-- High: healthy persons should avoid strenuous outdoor activities; vulnerable
-  persons should avoid all outdoor activities.
-- Very High: healthy persons should minimise all outdoor activities;
-  vulnerable persons should avoid all outdoor activities.
-- In this guidance, **reduce** means do less of the specified activity;
-  **minimise** means do as little as possible; and **avoid** means do not do
-  the specified activity.
-- These bands provide activity guidance, not an automatic event-cancellation
-  decision. The dashboard displays only the reading relevant to the event date.
-- PSI bands are assigned by the dashboard: 0-50 Good, 51-100 Moderate,
-  101-200 Unhealthy, 201-300 Very unhealthy, and above 300 Hazardous.
-- If a feed or selected regional reading is unavailable, the dashboard reports
-  the problem and does not show guidance for that unavailable reading.
-- The Event Planning Assessment uses the 1-hour PM2.5 reading and PM2.5 bands
-  for events held today. For future events it uses the 24-hour PSI reading
-  and PSI categories within 7 days. Events more than 7 days away show long-range
-  planning guidance and should be checked again using 1-hour PM2.5 on the event day.
-  It also uses duration, setting, activity intensity, and attendee mix. It generates
-  up to five practical recommended actions, including monitoring and fallback options. The
-  assessment is deterministic, does not use the reading as a future forecast,
-  and does not make a cancellation decision. A Markdown checklist can be
-  downloaded for event-planning records.
-- Saved-plan controls are grouped in an expandable section. The page also
-  includes a checklist progress indicator, expandable personal follow-up notes,
-  explicit delete confirmation, and a Markdown checklist export.
-- Saved-plan cards derive checklist progress and personal-notes status from stored
-  plan fields. Responsive CSS changes status and plan cards to fewer columns
-  on tablets and one column on mobile screens.
+The selected regional reading is mapped to a band, then combined with event
+details:
+
+| Reading | Bands used |
+|---|---|
+| 1-hour PM2.5 | Normal 0-55; Elevated 56-150; High 151-250; Very High above 250 µg/m³ |
+| 24-hour PSI | Good 0-50; Moderate 51-100; Unhealthy 101-200; Very unhealthy 201-300; Hazardous above 300 |
+
+**Assessment inputs:** event date, setting, duration, activity intensity,
+attendee mix, and selected region.
+
+**Assessment logic:** Today uses 1-hour PM2.5. Future events within 7 days
+use 24-hour PSI. Beyond 7 days use long-range planning only and prompt an
+event-day 1-hour PM2.5 recheck.
+
+The app assigns Monitor/Prepare/Act/Urgent Review for PM2.5 or equivalent
+PSI conditions, then generates up to five relevant actions. Missing readings
+produce an unable-to-assess result rather than guidance.
+
+**Meaning:** reduce = do less; minimise = do as little as possible;
+avoid = do not perform the activity. Bands inform planning only and do not
+automatically cancel an event or forecast future conditions.
+
+**Saved plans:** Store the event details, personal notes, editable checklist,
+and completion status. Plans can be loaded or deleted, and checklists can be
+downloaded as Markdown.
 """
 )
 
